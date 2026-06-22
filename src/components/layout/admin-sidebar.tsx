@@ -11,6 +11,7 @@ import {
   Percent,
   Layers,
   BarChart3,
+  ImageIcon,
   LogOut,
   X,
   Menu,
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/admin/orders", label: "Pesanan", icon: Package },
   { href: "/admin/categories", label: "Kategori", icon: Layers },
   { href: "/admin/vouchers", label: "Voucher", icon: Percent },
+  { href: "/admin/banners", label: "Banner", icon: ImageIcon },
   { href: "/admin/analytics", label: "Laporan", icon: BarChart3 },
 ]
 
@@ -54,7 +56,7 @@ export function AdminSidebar({
   if (!isAdmin) return null
 
   const visibleItems = navItems.filter(
-    (item) => isSuperadmin || item.href !== "/admin/analytics"
+    (item) => isSuperadmin || (item.href !== "/admin/analytics" && item.href !== "/admin/banners")
   )
 
   const sidebarContent = (

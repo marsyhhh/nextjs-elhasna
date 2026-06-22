@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,13 +10,17 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ImageUpload } from "@/components/admin/image-upload"
 import { toast } from "sonner"
-import { Plus, X, ArrowLeft } from "lucide-react"
+import { Plus, X, ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 
-export default function NewProductPage() {
+export default function EditProductPage() {
   const router = useRouter()
+  const params = useParams()
+  const productId = params.id as string
+
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [fetching, setFetching] = useState(true)
   const [uploadedImages, setUploadedImages] = useState<string[]>([])
   const [form, setForm] = useState({
     name: "", description: "", price: "", discountPrice: "", costPrice: "",
@@ -28,13 +32,48 @@ export default function NewProductPage() {
     fetch("/api/categories").then(r => r.json()).then(data => setCategories(Array.isArray(data) ? data : []))
   }, [])
 
+  useEffect(() => {
+    async function fetchProduct() {
+      try {
+        const res = await fetch(`/api/products/${productId}`)
+        if (!res.ok) throw new Error("Produk tidak ditemukan")
+        const product = await res.json()
+        setForm({
+          name: product.name,
+          description: product.description || "",
+          price: product.price.toString(),
+          discountPrice: product.discountPrice?.toString() || "",
+          costPrice: product.costPrice?.toString() || "",
+          weight: product.weight.toString(),
+          stock: product.stock.toString(),
+          categoryId: product.categoryId || "",
+          materials: product.materials || "",
+          isFlashSale: product.isFlashSale || false,
+        })
+        setUploadedImages(product.images || [])
+        setVariants(
+          product.variants?.map((v: any) => ({
+            name: v.name,
+            type: v.type,
+            stock: v.stock.toString(),
+          })) || []
+        )
+      } catch {
+        toast.error("Gagal memuat produk")
+        router.push("/admin/products")
+      }
+      setFetching(false)
+    }
+    fetchProduct()
+  }, [productId, router])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!uploadedImages.length) { toast.error("Tambahkan minimal 1 gambar produk"); return }
     setLoading(true)
     try {
-      const res = await fetch("/api/products", {
-        method: "POST",
+      const res = await fetch(`/api/products/${productId}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name, description: form.description,
@@ -48,18 +87,26 @@ export default function NewProductPage() {
         }),
       })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
-      toast.success("Produk berhasil dibuat"); router.push("/admin/products"); router.refresh()
-    } catch (err: any) { toast.error(err.message || "Gagal membuat produk") }
+      toast.success("Produk berhasil diperbarui"); router.push("/admin/products"); router.refresh()
+    } catch (err: any) { toast.error(err.message || "Gagal memperbarui produk") }
     setLoading(false)
   }
 
   function addVariant() { setVariants([...variants, { name: "", type: "color", stock: "0" }]) }
 
+  if (fetching) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/admin/products" className="text-slate-400 hover:text-slate-600"><ArrowLeft className="h-5 w-5" /></Link>
-        <h1 className="text-2xl font-bold text-slate-900">Tambah Produk Baru</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Edit Produk</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -120,10 +167,13 @@ export default function NewProductPage() {
         <Card><CardContent className="p-6 space-y-4">
           <h3 className="font-semibold text-slate-900">Gambar Produk</h3>
           <ImageUpload folder="products" maxFiles={5} onUploadSuccess={setUploadedImages} onUploadError={(e) => toast.error(e)} />
+          {uploadedImages.length > 0 && (
+            <p className="text-xs text-slate-400">{uploadedImages.length} gambar terupload</p>
+          )}
         </CardContent></Card>
 
         <Button type="submit" className="w-full" size="lg" disabled={loading}>
-          {loading ? "Menyimpan..." : "Simpan Produk"}
+          {loading ? "Menyimpan..." : "Simpan Perubahan"}
         </Button>
       </form>
     </div>

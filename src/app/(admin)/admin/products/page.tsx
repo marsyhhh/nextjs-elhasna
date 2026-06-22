@@ -90,7 +90,7 @@ export default function AdminProductsPage() {
               </div>
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="icon" asChild className="h-8 w-8">
-                  <Link href={`/admin/products/${product.id}`}><Pencil className="h-3.5 w-3.5" /></Link>
+                  <Link href={`/admin/products/${product.id}/edit`}><Pencil className="h-3.5 w-3.5" /></Link>
                 </Button>
                 <Button variant="ghost" size="icon" onClick={() => deleteProduct(product.id)} className="h-8 w-8 text-slate-400 hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5" />
