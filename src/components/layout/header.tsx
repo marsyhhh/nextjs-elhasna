@@ -2,9 +2,9 @@
 
 import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
-import { ShoppingBag, User, Search, Heart, Menu, X } from "lucide-react"
+import { ShoppingBag, User, Heart, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -39,23 +39,8 @@ export function Header() {
             </SheetTrigger>
             <SheetContent side="left" className="w-72">
               <nav className="flex flex-col gap-4 mt-8">
-                <Link href="/" className="text-lg font-semibold" onClick={() => setMobileMenuOpen(false)}>
-                  Beranda
-                </Link>
                 <Link href="/products" className="text-lg" onClick={() => setMobileMenuOpen(false)}>
                   Katalog
-                </Link>
-                <Link href="/category/hijab" className="text-lg" onClick={() => setMobileMenuOpen(false)}>
-                  Hijab
-                </Link>
-                <Link href="/category/gamis" className="text-lg" onClick={() => setMobileMenuOpen(false)}>
-                  Gamis
-                </Link>
-                <Link href="/category/tunik" className="text-lg" onClick={() => setMobileMenuOpen(false)}>
-                  Tunik
-                </Link>
-                <Link href="/category/mukena" className="text-lg" onClick={() => setMobileMenuOpen(false)}>
-                  Mukena
                 </Link>
                 {session?.user && (
                   <>
@@ -83,28 +68,9 @@ export function Header() {
             </span>
           </Link>
 
-          <div className="hidden md:flex flex-1 max-w-md mx-4">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Cari gamis silk, hijab voal..."
-                className="pl-9 h-9 bg-muted/50 border-none rounded-full text-sm"
-              />
-            </div>
-          </div>
-
           <nav className="hidden lg:flex items-center gap-1">
             <Link href="/products" className="text-sm font-medium text-muted-foreground hover:text-foreground px-3 py-2">
               Katalog
-            </Link>
-            <Link href="/category/hijab" className="text-sm font-medium text-muted-foreground hover:text-foreground px-3 py-2">
-              Hijab
-            </Link>
-            <Link href="/category/gamis" className="text-sm font-medium text-muted-foreground hover:text-foreground px-3 py-2">
-              Gamis
-            </Link>
-            <Link href="/category/tunik" className="text-sm font-medium text-muted-foreground hover:text-foreground px-3 py-2">
-              Tunik
             </Link>
           </nav>
 

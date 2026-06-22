@@ -31,6 +31,7 @@ export async function GET(req: Request) {
 
   if (sort === "price_asc") orderBy = { price: "asc" }
   else if (sort === "price_desc") orderBy = { price: "desc" }
+  else if (sort === "created_at_asc") orderBy = { createdAt: "asc" }
   else if (sort === "name") orderBy = { name: "asc" }
 
   const products = await prisma.product.findMany({
