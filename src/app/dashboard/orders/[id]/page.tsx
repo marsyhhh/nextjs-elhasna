@@ -9,7 +9,20 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { formatPrice } from "@/lib/utils"
-import { ArrowLeft, Package, Truck } from "lucide-react"
+import { toast } from "sonner"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { ArrowLeft, Package, Truck, XCircle } from "lucide-react"
 
 const statusLabels: Record<string, string> = {
   PENDING_PAYMENT: "Belum Dibayar", PROCESSING: "Diproses", SHIPPED: "Dikirim", DELIVERED: "Selesai", CANCELLED: "Dibatalkan",
@@ -24,6 +37,8 @@ export default function OrderDetailPage() {
   const params = useParams()
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   useEffect(() => { fetchOrder() }, [])
 
@@ -33,6 +48,25 @@ export default function OrderDetailPage() {
       setOrder(await res.json())
     } catch { console.error("Failed to fetch order") }
     setLoading(false)
+  }
+
+  const canCancel = order && (order.status === "PENDING_PAYMENT" || order.status === "PROCESSING")
+
+  async function handleCancel() {
+    setCancelling(true)
+    try {
+      const res = await fetch(`/api/orders/${order.id}/cancel`, { method: "PATCH" })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Gagal membatalkan pesanan")
+      }
+      toast.success("Pesanan berhasil dibatalkan")
+      setCancelOpen(false)
+      fetchOrder()
+    } catch (err: any) {
+      toast.error(err.message || "Gagal membatalkan pesanan")
+    }
+    setCancelling(false)
   }
 
   if (loading) return <p className="text-muted-foreground">Memuat...</p>
@@ -50,6 +84,31 @@ export default function OrderDetailPage() {
         </div>
         <Badge className={statusColors[order.status]}>{statusLabels[order.status] || order.status}</Badge>
       </div>
+
+      {canCancel && (
+        <div className="flex justify-end">
+          <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
+            <AlertDialogTrigger render={<Button variant="destructive">Batalkan Pesanan</Button>} />
+            <AlertDialogContent size="sm">
+              <AlertDialogHeader>
+                <AlertDialogMedia>
+                  <XCircle className="h-6 w-6 text-destructive" />
+                </AlertDialogMedia>
+                <AlertDialogTitle>Batalkan Pesanan</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Apakah Anda yakin ingin membatalkan pesanan ini? Tindakan ini tidak dapat dibatalkan.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Tidak</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCancel} disabled={cancelling}>
+                  {cancelling ? "Membatalkan..." : "Ya, Batalkan"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-6 space-y-4">
