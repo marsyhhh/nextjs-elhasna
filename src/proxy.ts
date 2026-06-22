@@ -6,6 +6,12 @@ export async function proxy(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
   const pathname = req.nextUrl.pathname
 
+  // Public routes
+  const publicPaths = ["/auth/login", "/auth/register", "/api/auth"]
+  const isPublic = publicPaths.some((p) => pathname.startsWith(p))
+  if (isPublic) return NextResponse.next()
+
+  // Protected paths
   const protectedPaths = ["/dashboard", "/admin", "/checkout"]
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p))
 
@@ -18,17 +24,14 @@ export async function proxy(req: NextRequest) {
 
     const role = token.role as string
 
-    if (pathname.startsWith("/admin")) {
-      if (role === "CUSTOMER") {
-        return NextResponse.redirect(new URL("/", req.url))
-      }
+    // Admin routes - only ADMIN/SUPERADMIN
+    if (pathname.startsWith("/admin") && role === "CUSTOMER") {
+      return NextResponse.redirect(new URL("/", req.url))
+    }
 
-      if (
-        (pathname.startsWith("/admin/analytics") || pathname.startsWith("/admin/content")) &&
-        role !== "SUPERADMIN"
-      ) {
-        return NextResponse.redirect(new URL("/admin", req.url))
-      }
+    // Customer dashboard - only CUSTOMER
+    if (pathname.startsWith("/dashboard") && role !== "CUSTOMER") {
+      return NextResponse.redirect(new URL("/admin", req.url))
     }
   }
 
@@ -36,5 +39,9 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*", "/checkout"],
+  matcher: [
+    "/dashboard/:path*",
+    "/admin/:path*",
+    "/checkout",
+  ],
 }

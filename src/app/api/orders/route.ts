@@ -27,6 +27,7 @@ export async function GET(req: Request) {
     include: {
       items: { include: { product: true, variant: true } },
       address: true,
+      user: { select: { name: true, email: true } },
     },
     orderBy: { createdAt: "desc" },
   })
