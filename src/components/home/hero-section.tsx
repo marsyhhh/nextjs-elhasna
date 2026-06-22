@@ -22,7 +22,7 @@ export function HeroSection() {
   useEffect(() => {
     async function fetchBanners() {
       try {
-        const res = await fetch("/api/banners")
+        const res = await fetch("/api/banners?type=HERO")
         const data = await res.json()
         const active = Array.isArray(data) ? data.filter((b: any) => b.isActive) : []
         setBanners(active)

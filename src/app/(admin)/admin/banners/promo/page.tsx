@@ -15,7 +15,7 @@ import { ImageUpload } from "@/components/admin/image-upload"
 import { toast } from "sonner"
 import { Plus, ImageIcon, Pencil, Trash2 } from "lucide-react"
 
-export default function AdminBannersPage() {
+export default function AdminPromoBannersPage() {
   const [banners, setBanners] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
@@ -29,10 +29,10 @@ export default function AdminBannersPage() {
 
   async function fetchBanners() {
     try {
-      const res = await fetch("/api/banners?type=HERO")
+      const res = await fetch("/api/banners?type=PROMO")
       const data = await res.json()
       setBanners(Array.isArray(data) ? data : [])
-    } catch { toast.error("Gagal memuat banner") }
+    } catch { toast.error("Gagal memuat banner promo") }
     setLoading(false)
   }
 
@@ -69,7 +69,7 @@ export default function AdminBannersPage() {
         image: imageUrl,
         link: form.link || null,
         order: parseInt(form.order || "0"),
-        type: "HERO",
+        type: "PROMO",
       }
 
       if (editingBanner) {
@@ -79,7 +79,7 @@ export default function AdminBannersPage() {
           body: JSON.stringify(payload),
         })
         if (!res.ok) throw new Error()
-        toast.success("Banner berhasil diperbarui")
+        toast.success("Banner promo berhasil diperbarui")
       } else {
         const res = await fetch("/api/banners", {
           method: "POST",
@@ -87,23 +87,23 @@ export default function AdminBannersPage() {
           body: JSON.stringify(payload),
         })
         if (!res.ok) throw new Error()
-        toast.success("Banner berhasil dibuat")
+        toast.success("Banner promo berhasil dibuat")
       }
       setOpen(false)
       setEditingBanner(null)
       setForm({ title: "", subtitle: "", link: "", order: "0" })
       setImageUrl("")
       fetchBanners()
-    } catch { toast.error(editingBanner ? "Gagal memperbarui banner" : "Gagal membuat banner") }
+    } catch { toast.error(editingBanner ? "Gagal memperbarui banner promo" : "Gagal membuat banner promo") }
   }
 
   async function handleDelete(id: string) {
     try {
       const res = await fetch(`/api/banners/${id}`, { method: "DELETE" })
       if (!res.ok) throw new Error()
-      toast.success("Banner berhasil dihapus")
+      toast.success("Banner promo berhasil dihapus")
       fetchBanners()
-    } catch { toast.error("Gagal menghapus banner") }
+    } catch { toast.error("Gagal menghapus banner promo") }
   }
 
   async function handleToggleActive(b: any) {
@@ -114,34 +114,34 @@ export default function AdminBannersPage() {
         body: JSON.stringify({ isActive: !b.isActive }),
       })
       if (!res.ok) throw new Error()
-      toast.success(b.isActive ? "Banner dinonaktifkan" : "Banner diaktifkan")
+      toast.success(b.isActive ? "Banner promo dinonaktifkan" : "Banner promo diaktifkan")
       fetchBanners()
-    } catch { toast.error("Gagal mengubah status banner") }
+    } catch { toast.error("Gagal mengubah status banner promo") }
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Banner Hero</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Banner Promo</h1>
           <p className="text-sm text-slate-500 mt-0.5">{banners.length} banner</p>
         </div>
-        <Button onClick={handleOpenCreate}><Plus className="h-4 w-4" /> Tambah Banner</Button>
+        <Button onClick={handleOpenCreate}><Plus className="h-4 w-4" /> Tambah Banner Promo</Button>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingBanner ? "Edit Banner" : "Tambah Banner Baru"}</DialogTitle>
+            <DialogTitle>{editingBanner ? "Edit Banner Promo" : "Tambah Banner Promo Baru"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label>Judul</Label>
-              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="Koleksi Eid Series" />
+              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="Promo Spesial Ramadhan" />
             </div>
             <div className="space-y-2">
               <Label>Subtitle</Label>
-              <Input value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} placeholder="Tampil Anggun di Hari Spesial" />
+              <Input value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} placeholder="Diskon hingga 50%" />
             </div>
             <div className="space-y-2">
               <Label>Link (Opsional)</Label>
@@ -167,7 +167,7 @@ export default function AdminBannersPage() {
               )}
             </div>
             <Button type="submit" className="w-full">
-              {editingBanner ? "Perbarui Banner" : "Simpan Banner"}
+              {editingBanner ? "Perbarui Banner Promo" : "Simpan Banner Promo"}
             </Button>
           </form>
         </DialogContent>
@@ -211,9 +211,9 @@ export default function AdminBannersPage() {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Hapus Banner</AlertDialogTitle>
+                          <AlertDialogTitle>Hapus Banner Promo</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Apakah Anda yakin ingin menghapus banner &quot;{b.title}&quot;? Tindakan ini tidak dapat dibatalkan.
+                            Apakah Anda yakin ingin menghapus banner promo &quot;{b.title}&quot;? Tindakan ini tidak dapat dibatalkan.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -232,7 +232,7 @@ export default function AdminBannersPage() {
           {banners.length === 0 && (
             <div className="text-center py-12 text-slate-400 col-span-full">
               <ImageIcon className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-              <p>Belum ada banner</p>
+              <p>Belum ada banner promo</p>
             </div>
           )}
         </div>

@@ -7,6 +7,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum BannerType {
+  HERO
+  PROMO
+}
+
 enum Role {
   CUSTOMER
   ADMIN
@@ -298,15 +303,16 @@ model Voucher {
 }
 
 model Banner {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   title     String
   subtitle  String?
   image     String
   link      String?
-  order     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  order     Int        @default(0)
+  isActive  Boolean    @default(true)
+  type      BannerType @default(HERO)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
   @@map("banners")
 }

@@ -30,7 +30,7 @@ const customerLinks = [
 ]
 
 const adminLinks = [
-  { href: "/admin", label: "Dashboard Admin", icon: LayoutDashboard },
+  { href: "/admin", label: "Panel Admin", icon: Shield },
   { href: "/admin/products", label: "Produk", icon: ShoppingBag },
   { href: "/admin/orders", label: "Pesanan", icon: Package },
   { href: "/admin/vouchers", label: "Voucher", icon: Percent },

@@ -64,7 +64,7 @@ export function Header() {
                       Dashboard
                     </Link>
                     {session.user.role !== "CUSTOMER" && (
-                      <Link href={session.user.role === "SUPERADMIN" ? "/superadmin" : "/admin"} className="text-lg" onClick={() => setMobileMenuOpen(false)}>
+                      <Link href="/admin" className="text-lg" onClick={() => setMobileMenuOpen(false)}>
                         Admin Panel
                       </Link>
                     )}

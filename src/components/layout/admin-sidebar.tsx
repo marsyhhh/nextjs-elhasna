@@ -15,8 +15,9 @@ import {
   LogOut,
   X,
   Menu,
+  ChevronDown,
 } from "lucide-react"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -24,7 +25,12 @@ const navItems = [
   { href: "/admin/orders", label: "Pesanan", icon: Package },
   { href: "/admin/categories", label: "Kategori", icon: Layers },
   { href: "/admin/vouchers", label: "Voucher", icon: Percent },
-  { href: "/admin/banners", label: "Banner", icon: ImageIcon },
+  { href: "/admin/banners", label: "Banner", icon: ImageIcon, dropdown: true,
+    children: [
+      { href: "/admin/banners", label: "Hero" },
+      { href: "/admin/banners/promo", label: "Promo" },
+    ],
+  },
   { href: "/admin/analytics", label: "Laporan", icon: BarChart3 },
 ]
 
@@ -39,6 +45,8 @@ export function AdminSidebar({
   const { data: session } = useSession()
   const isSuperadmin = session?.user?.role === "SUPERADMIN"
   const isAdmin = session?.user?.role === "ADMIN" || isSuperadmin
+  const isBannerActive = pathname === "/admin/banners" || pathname.startsWith("/admin/banners/")
+  const [bannerOpen, setBannerOpen] = useState(isBannerActive)
 
   useEffect(() => {
     onClose()
@@ -52,6 +60,10 @@ export function AdminSidebar({
     }
     return () => { document.body.style.overflow = "" }
   }, [open])
+
+  useEffect(() => {
+    if (isBannerActive) setBannerOpen(true)
+  }, [pathname])
 
   if (!isAdmin) return null
 
@@ -79,6 +91,50 @@ export function AdminSidebar({
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
         {visibleItems.map((item) => {
           const Icon = item.icon
+
+          if (item.dropdown) {
+            return (
+              <div key={item.href} className="space-y-1">
+                <button
+                  onClick={() => setBannerOpen(!bannerOpen)}
+                  className={cn(
+                    "flex items-center justify-between w-full gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                    isBannerActive
+                      ? "bg-primary/20 text-primary font-medium"
+                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {item.label}
+                  </div>
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", bannerOpen && "rotate-180")} />
+                </button>
+                {bannerOpen && (
+                  <div className="ml-6 space-y-1 border-l border-slate-700 pl-3">
+                    {item.children?.map((child) => {
+                      const isChildActive = pathname === child.href
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                            isChildActive
+                              ? "bg-primary/20 text-primary font-medium"
+                              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                          )}
+                        >
+                          {child.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          }
+
           const isActive =
             pathname === item.href ||
             (item.href !== "/admin" && pathname.startsWith(item.href))

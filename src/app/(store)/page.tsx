@@ -1,4 +1,5 @@
 import { HeroSection } from "@/components/home/hero-section"
+import { PromoBanner } from "@/components/home/promo-banner"
 import { CategoryBar } from "@/components/home/category-bar"
 import { ProductCard } from "@/components/product/product-card"
 import { Button } from "@/components/ui/button"
@@ -103,27 +104,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="bg-muted/50 py-16">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-muted">
-              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30">
-                Banner Promo
-              </div>
-            </div>
-            <div className="space-y-4">
-              <Badge variant="secondary">Best Seller</Badge>
-              <h2 className="text-3xl font-heading font-bold">Koleksi Gamis Premium</h2>
-              <p className="text-muted-foreground leading-relaxed">
-                Temukan gamis favoritmu dengan bahan berkualitas tinggi dan desain modern yang cocok untuk berbagai acara.
-              </p>
-              <Button asChild>
-                <Link href="/category/gamis">Explore Koleksi</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
+      <PromoBanner />
 
       <section className="py-10">
         <div className="max-w-7xl mx-auto px-4">
