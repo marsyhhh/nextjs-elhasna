@@ -22,7 +22,16 @@ interface ShippingOption {
   description: string
   cost: number
   etd: string
+  courier: string
+  courierName: string
 }
+
+const couriers = [
+  { value: "jne", label: "JNE" },
+  { value: "jnt", label: "J&T" },
+  { value: "sicepat", label: "SiCepat" },
+  { value: "anteraja", label: "AnterAja" },
+]
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -76,9 +85,8 @@ export default function CheckoutPage() {
     const address = addresses.find((a) => a.id === selectedAddress)
     if (!address) return
 
-    if (!address.cityId) {
-      toast.error("Alamat belum memiliki kota tujuan. Perbarui alamat di dashboard.")
-      setLoadingShipping(false)
+    if (!address.postalCode) {
+      toast.error("Alamat belum memiliki kode pos. Perbarui alamat di dashboard.")
       return
     }
 
@@ -90,9 +98,20 @@ export default function CheckoutPage() {
     const totalWeight = items.reduce((sum, item) => sum + item.weight * item.quantity, 0)
 
     try {
-      const res = await fetch(
-        `/api/rajaongkir/cost?destination=${address.cityId}&weight=${totalWeight}&courier=${courier}`
-      )
+      const res = await fetch("/api/biteship/rates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destinationPostalCode: address.postalCode,
+          couriers: courier,
+          items: items.map((item) => ({
+            name: item.name,
+            value: item.discountPrice || item.price,
+            weight: item.weight,
+            quantity: item.quantity,
+          })),
+        }),
+      })
 
       const data = await res.json()
 
@@ -102,8 +121,16 @@ export default function CheckoutPage() {
         return
       }
 
-      if (data.services) {
-        setShippingOptions(data.services)
+      if (data.pricing && data.pricing.length > 0) {
+        const options: ShippingOption[] = data.pricing.map((p: any) => ({
+          service: p.courier_service_code,
+          description: p.courier_service_name,
+          cost: p.price,
+          etd: p.shipment_duration_range || p.duration?.replace(" days", "").trim() || "",
+          courier: p.company,
+          courierName: p.courier_name,
+        }))
+        setShippingOptions(options)
       } else {
         toast.error("Tidak ada layanan pengiriman tersedia")
       }
@@ -225,12 +252,7 @@ export default function CheckoutPage() {
               <div className="space-y-4">
                 <RadioGroup value={courier} onValueChange={setCourier}>
                   <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { value: "jne", label: "JNE" },
-                      { value: "jnt", label: "J&T" },
-                      { value: "pos", label: "POS Indonesia" },
-                      { value: "sicepat", label: "SiCepat" },
-                    ].map((c) => (
+                    {couriers.map((c) => (
                       <div key={c.value} className="flex items-center gap-2 p-3 rounded-lg border has-[[data-state=checked]]:border-primary">
                         <RadioGroupItem value={c.value} id={`courier-${c.value}`} />
                         <Label htmlFor={`courier-${c.value}`} className="cursor-pointer text-sm">{c.label}</Label>
@@ -246,14 +268,14 @@ export default function CheckoutPage() {
                     <Label>Pilih Layanan</Label>
                     {shippingOptions.map((opt) => (
                       <div
-                        key={opt.service}
+                        key={`${opt.courier}-${opt.service}`}
                         className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${
                           selectedShipping === opt.service ? "border-primary bg-primary/5" : ""
                         }`}
                         onClick={() => handleShippingSelect(opt.service, opt.cost, opt.etd)}
                       >
                         <div>
-                          <p className="text-sm font-medium">{opt.service}</p>
+                          <p className="text-sm font-medium">{opt.courierName} - {opt.service}</p>
                           <p className="text-xs text-muted-foreground">{opt.description} ({opt.etd} hari)</p>
                         </div>
                         <p className="font-semibold text-sm">{formatPrice(opt.cost)}</p>
@@ -336,7 +358,6 @@ export default function CheckoutPage() {
           </Card>
         </div>
       </div>
-
     </div>
   )
 }

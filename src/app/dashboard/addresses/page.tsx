@@ -1,22 +1,39 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
-import { MapPin, Plus, Pencil, Trash2 } from "lucide-react"
+import { MapPin, Plus, Pencil, Trash2, Search, Loader2 } from "lucide-react"
 
-const emptyForm = { label: "Utama", recipient: "", phone: "", street: "", city: "", cityId: "", province: "", provinceId: "", postalCode: "", isDefault: false }
+interface AreaResult {
+  id: string
+  name: string
+  postal_code: number
+  administrative_division_level_2_name: string
+  administrative_division_level_1_name: string
+}
+
+const emptyForm = {
+  label: "Utama",
+  recipient: "",
+  phone: "",
+  street: "",
+  city: "",
+  province: "",
+  postalCode: "",
+  areaId: "",
+  isDefault: false,
+}
 
 export default function AddressesPage() {
   const [addresses, setAddresses] = useState<any[]>([])
@@ -27,23 +44,64 @@ export default function AddressesPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
 
-  const [provinces, setProvinces] = useState<{ id: string; name: string }[]>([])
-  const [cities, setCities] = useState<{ id: string; name: string }[]>([])
-  const [loadingProvinces, setLoadingProvinces] = useState(false)
-  const [loadingCities, setLoadingCities] = useState(false)
+  const [areaSearch, setAreaSearch] = useState("")
+  const [areaResults, setAreaResults] = useState<AreaResult[]>([])
+  const [searchingArea, setSearchingArea] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+  const searchRef = useRef<HTMLDivElement>(null)
+  const searchTimeout = useRef<NodeJS.Timeout>()
 
   useEffect(() => { fetchAddresses() }, [])
 
   useEffect(() => {
-    if (!open) return
-    fetchProvinces()
-  }, [open])
-
-  useEffect(() => {
-    if (form.provinceId) {
-      fetchCities(form.provinceId)
+    function handleClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowResults(false)
+      }
     }
-  }, [form.provinceId])
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  function handleAreaSearch(value: string) {
+    setAreaSearch(value)
+    setForm({ ...form, city: "", province: "", postalCode: "", areaId: "" })
+
+    if (searchTimeout.current) clearTimeout(searchTimeout.current)
+
+    if (value.length < 2) {
+      setAreaResults([])
+      setShowResults(false)
+      return
+    }
+
+    searchTimeout.current = setTimeout(async () => {
+      setSearchingArea(true)
+      try {
+        const res = await fetch(`/api/biteship/maps/areas?input=${encodeURIComponent(value)}`)
+        const data = await res.json()
+        if (Array.isArray(data)) {
+          setAreaResults(data)
+          setShowResults(data.length > 0)
+        }
+      } catch {
+        setAreaResults([])
+      }
+      setSearchingArea(false)
+    }, 400)
+  }
+
+  function selectArea(area: AreaResult) {
+    setForm({
+      ...form,
+      city: area.administrative_division_level_2_name || "",
+      province: area.administrative_division_level_1_name || "",
+      postalCode: String(area.postal_code || ""),
+      areaId: area.id,
+    })
+    setAreaSearch(area.name)
+    setShowResults(false)
+  }
 
   async function fetchAddresses() {
     try { setAddresses(await (await fetch("/api/addresses")).json()) }
@@ -51,39 +109,11 @@ export default function AddressesPage() {
     setLoading(false)
   }
 
-  async function fetchProvinces() {
-    setLoadingProvinces(true)
-    try {
-      const res = await fetch("/api/rajaongkir/provinces")
-      const data = await res.json()
-      if (!res.ok || !Array.isArray(data)) {
-        toast.error(data.error || "Gagal memuat provinsi")
-        return
-      }
-      setProvinces(data)
-    } catch { toast.error("Gagal memuat provinsi") }
-    setLoadingProvinces(false)
-  }
-
-  async function fetchCities(provinceId: string) {
-    setLoadingCities(true)
-    setCities([])
-    try {
-      const res = await fetch(`/api/rajaongkir/cities?province=${provinceId}`)
-      const data = await res.json()
-      if (!res.ok || !Array.isArray(data)) {
-        toast.error(data.error || "Gagal memuat kota")
-        return
-      }
-      setCities(data)
-    } catch { toast.error("Gagal memuat kota") }
-    setLoadingCities(false)
-  }
-
   function handleOpenCreate() {
     setEditingAddress(null)
     setForm(emptyForm)
-    setCities([])
+    setAreaSearch("")
+    setAreaResults([])
     setOpen(true)
   }
 
@@ -95,15 +125,12 @@ export default function AddressesPage() {
       phone: addr.phone,
       street: addr.street,
       city: addr.city,
-      cityId: addr.cityId || "",
       province: addr.province,
-      provinceId: addr.provinceId || "",
       postalCode: addr.postalCode,
+      areaId: addr.areaId || "",
       isDefault: addr.isDefault,
     })
-    if (addr.provinceId) {
-      fetchCities(addr.provinceId)
-    }
+    setAreaSearch(`${addr.city}, ${addr.province}`)
     setOpen(true)
   }
 
@@ -116,7 +143,10 @@ export default function AddressesPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form),
         })
-        if (!res.ok) throw new Error()
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || "Gagal memperbarui alamat")
+        }
         toast.success("Alamat berhasil diperbarui")
       } else {
         const res = await fetch("/api/addresses", {
@@ -124,14 +154,18 @@ export default function AddressesPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form),
         })
-        if (!res.ok) throw new Error()
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || "Gagal menyimpan alamat")
+        }
         toast.success("Alamat berhasil ditambahkan")
       }
       setOpen(false)
       setEditingAddress(null)
       setForm(emptyForm)
+      setAreaSearch("")
       fetchAddresses()
-    } catch { toast.error(editingAddress ? "Gagal memperbarui alamat" : "Gagal menyimpan alamat") }
+    } catch (err: any) { toast.error(err.message) }
   }
 
   async function handleDelete(id: string) {
@@ -156,8 +190,8 @@ export default function AddressesPage() {
         <Button onClick={handleOpenCreate}><Plus className="h-4 w-4" /> Tambah Alamat</Button>
       </div>
 
-      <Dialog open={open} onOpenChange={(v) => { if (!v) { setEditingAddress(null); setForm(emptyForm) }; setOpen(v) }}>
-        <DialogContent>
+      <Dialog open={open} onOpenChange={(v) => { if (!v) { setEditingAddress(null); setForm(emptyForm); setAreaSearch("") }; setOpen(v) }}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>{editingAddress ? "Edit Alamat" : "Tambah Alamat Baru"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -166,44 +200,47 @@ export default function AddressesPage() {
             </div>
             <div className="space-y-2"><Label>No. Telepon</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required /></div>
             <div className="space-y-2"><Label>Alamat Lengkap</Label><Input value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} required /></div>
+
+            <div className="space-y-2 relative" ref={searchRef}>
+              <Label>Cari Kota / Kecamatan</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Ketik nama kota atau kecamatan..."
+                  value={areaSearch}
+                  onChange={(e) => handleAreaSearch(e.target.value)}
+                  onFocus={() => areaResults.length > 0 && setShowResults(true)}
+                  className="pl-9"
+                />
+                {searchingArea && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+              {showResults && (
+                <div className="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {areaResults.map((area) => (
+                    <button
+                      key={area.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors border-b last:border-0"
+                      onClick={() => selectArea(area)}
+                    >
+                      <span className="font-medium">{area.name}</span>
+                      <span className="text-muted-foreground ml-2">
+                        {area.administrative_division_level_2_name}, {area.administrative_division_level_1_name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Provinsi</Label>
-                <Select
-                  value={form.provinceId || null}
-                  onValueChange={(v) => {
-                    const p = provinces.find((p) => p.id === v)
-                    setForm({ ...form, provinceId: v, province: p?.name || "", cityId: "", city: "" })
-                  }}
-                >
-                  <SelectTrigger className="w-full"><SelectValue placeholder={loadingProvinces ? "Memuat..." : "Pilih provinsi"} /></SelectTrigger>
-                  <SelectContent className="z-[60]">
-                    {provinces.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Kota</Label>
-                <Select
-                  value={form.cityId || null}
-                  onValueChange={(v) => {
-                    const c = cities.find((c) => c.id === v)
-                    setForm({ ...form, cityId: v, city: c?.name || "" })
-                  }}
-                  disabled={!form.provinceId}
-                >
-                  <SelectTrigger className="w-full"><SelectValue placeholder={!form.provinceId ? "Pilih provinsi dulu" : loadingCities ? "Memuat..." : "Pilih kota"} /></SelectTrigger>
-                  <SelectContent className="z-[60]">
-                    {cities.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="space-y-2"><Label>Kota</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required /></div>
+              <div className="space-y-2"><Label>Provinsi</Label><Input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} required /></div>
               <div className="space-y-2"><Label>Kode Pos</Label><Input value={form.postalCode} onChange={(e) => setForm({ ...form, postalCode: e.target.value })} required /></div>
             </div>
+
             <div className="flex items-center gap-2">
               <Checkbox id="default" checked={form.isDefault} onCheckedChange={(v) => setForm({ ...form, isDefault: v as boolean })} />
               <Label htmlFor="default">Jadikan alamat utama</Label>

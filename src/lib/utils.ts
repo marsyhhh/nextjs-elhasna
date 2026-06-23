@@ -29,7 +29,7 @@ export function generateInvoiceNumber(): string {
   const m = String(date.getMonth() + 1).padStart(2, "0")
   const d = String(date.getDate()).padStart(2, "0")
   const random = Math.random().toString(36).substring(2, 8).toUpperCase()
-  return `INV/${y}${m}${d}/EH/${random}`
+  return `INV-${y}${m}${d}-EH-${random}`
 }
 
 export function calculateDiscount(price: number, discountPercent: number): number {

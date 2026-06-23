@@ -104,10 +104,9 @@ model Address {
   phone      String
   street     String
   city       String
-  cityId     String?
   province   String
-  provinceId String?
   postalCode String
+  areaId     String?
   isDefault  Boolean @default(false)
 
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -251,11 +250,16 @@ model Order {
   notes           String?
   courier         String?
   courierService  String?
-  trackingNumber  String?
-  estimatedDays   String?
-  paidAt          DateTime?
-  shippedAt       DateTime?
-  deliveredAt     DateTime?
+  trackingNumber      String?
+  estimatedDays       String?
+  biteshipWaybillId   String?
+  biteshipTrackingId  String?
+  biteshipStatus      String?
+  biteshipLabelUrl    String?
+  biteshipTrackingUrl String?
+  paidAt              DateTime?
+  shippedAt           DateTime?
+  deliveredAt         DateTime?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 

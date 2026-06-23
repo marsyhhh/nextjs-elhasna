@@ -11,8 +11,9 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatPrice } from "@/lib/utils"
+import { generateShippingLabel } from "@/lib/shipping-label"
 import { toast } from "sonner"
-import { ArrowLeft, Package, Truck } from "lucide-react"
+import { ArrowLeft, Package, Truck, Printer, ExternalLink, Loader2 } from "lucide-react"
 
 const statusOptions = [
   { value: "PENDING_PAYMENT", label: "Belum Dibayar" },
@@ -30,18 +31,52 @@ export default function AdminOrderDetailPage() {
   const [status, setStatus] = useState("")
   const [trackingNumber, setTrackingNumber] = useState("")
   const [saving, setSaving] = useState(false)
+  const [creatingShipment, setCreatingShipment] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => { fetchOrder() }, [])
 
   async function fetchOrder() {
     try {
       const res = await fetch(`/api/orders/${params.id}`)
+      if (!res.ok) throw new Error("Failed to fetch")
       const data = await res.json()
       setOrder(data)
       setStatus(data.status)
       setTrackingNumber(data.trackingNumber || "")
     } catch { toast.error("Gagal memuat pesanan") }
     setLoading(false)
+  }
+
+  useEffect(() => {
+    if (!order) return
+    if (!order.biteshipWaybillId || order.biteshipLabelUrl) return
+    const interval = setInterval(fetchOrder, 5000)
+    return () => clearInterval(interval)
+  }, [order?.biteshipWaybillId, order?.biteshipLabelUrl])
+
+  async function handleRefreshStatus() {
+    if (!order?.biteshipWaybillId) return
+    setRefreshing(true)
+    try {
+      const res = await fetch(`/api/biteship/tracking/${order.biteshipWaybillId}`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err?.error || "Gagal refresh tracking")
+      }
+      const data = await res.json()
+      await fetchOrder()
+      if (data.order?.status === "DELIVERED") {
+        toast.success("Pesanan sudah diterima")
+      } else if (data.order?.status === "SHIPPED") {
+        toast.success("Status: Dikirim")
+      } else {
+        toast.info(`Status: ${data.order?.biteshipStatus || "diperbarui"}`)
+      }
+    } catch (e: unknown) {
+      toast.error((e instanceof Error ? e.message : "") || "Gagal refresh status")
+    }
+    setRefreshing(false)
   }
 
   async function handleUpdate() {
@@ -57,6 +92,68 @@ export default function AdminOrderDetailPage() {
       router.refresh()
     } catch { toast.error("Gagal mengupdate pesanan") }
     setSaving(false)
+  }
+
+  async function handleCreateShipment() {
+    if (!order?.address?.postalCode) {
+      toast.error("Alamat tujuan tidak memiliki kode pos")
+      return
+    }
+
+    setCreatingShipment(true)
+    try {
+      const destinationAddress = [
+        order.address?.street,
+        order.address?.city,
+        order.address?.province,
+      ].filter(Boolean).join(", ")
+
+      const res = await fetch("/api/biteship/shipments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destinationPostalCode: order.address.postalCode,
+          destinationContactName: order.user?.name || "Customer",
+          destinationContactPhone: order.user?.phone || "",
+          destinationAddress,
+          courier: order.courier,
+          courierService: order.courierService,
+          items: order.items.map((item: any) => ({
+            name: item.product?.name || "Produk",
+            value: item.price,
+            weight: item.product?.weight || 500,
+            quantity: item.quantity,
+          })),
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) throw new Error(data.error || "Gagal membuat pengiriman")
+
+      const waybillId = data.courier?.waybill_id || data.id
+      const trackingId = data.courier?.tracking_id || null
+      const trackingUrl = data.courier?.link || null
+
+      await fetch(`/api/orders/${params.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          biteshipWaybillId: data.id,
+          biteshipTrackingId: trackingId,
+          biteshipStatus: data.status || "confirmed",
+          biteshipTrackingUrl: trackingUrl,
+          trackingNumber: waybillId,
+          status: "SHIPPED",
+        }),
+      })
+
+      toast.success("Pengiriman berhasil dibuat")
+      fetchOrder()
+    } catch (err: any) {
+      toast.error(err.message || "Gagal membuat pengiriman")
+    }
+    setCreatingShipment(false)
   }
 
   if (loading) return <p className="text-slate-400 py-8 text-center">Memuat...</p>
@@ -135,14 +232,66 @@ export default function AdminOrderDetailPage() {
               </div>
               <div className="space-y-2">
                 <Label className="text-xs text-slate-400">Nomor Resi</Label>
-                <Input value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} placeholder="JP1234567890" />
-                <p className="text-[10px] text-slate-400">Masukkan nomor resi ekspedisi (J&T, SiCepat, dll)</p>
+                <Input value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} placeholder="Otomatis dari Biteship" />
               </div>
             </div>
             <Button onClick={handleUpdate} disabled={saving} className="w-full gap-2">
               <Truck className="h-4 w-4" />{saving ? "Menyimpan..." : "Simpan Perubahan"}
             </Button>
           </CardContent></Card>
+
+          {order.status === "PROCESSING" && order.address?.postalCode && !order.biteshipWaybillId && (
+            <Card><CardContent className="p-6 space-y-4">
+              <h3 className="font-semibold text-slate-900">Buat Pengiriman</h3>
+              <Separator />
+              <p className="text-xs text-slate-400">Buat shipment via Biteship untuk menghasilkan resi dan tracking.</p>
+              <Button onClick={handleCreateShipment} disabled={creatingShipment} className="w-full gap-2">
+                {creatingShipment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+                {creatingShipment ? "Membuat..." : "Buat Pengiriman"}
+              </Button>
+            </CardContent></Card>
+          )}
+
+          {order.biteshipWaybillId && (
+            <Card><CardContent className="p-6 space-y-4">
+              <h3 className="font-semibold text-slate-900">Info Pengiriman</h3>
+              <Separator />
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Waybill ID</span>
+                  <span className="font-mono text-xs">{order.biteshipWaybillId}</span>
+                </div>
+                {order.biteshipStatus && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Status</span>
+                    <Badge variant="outline">{order.biteshipStatus}</Badge>
+                  </div>
+                )}
+                {order.biteshipTrackingUrl && (
+                  <Button variant="outline" size="sm" className="w-full gap-2" asChild>
+                    <a href={order.biteshipTrackingUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" /> Lacak Pengiriman
+                    </a>
+                  </Button>
+                )}
+                {order.biteshipLabelUrl ? (
+                  <Button variant="outline" size="sm" className="w-full gap-2" asChild>
+                    <a href={order.biteshipLabelUrl} target="_blank" rel="noopener noreferrer">
+                      <Printer className="h-3.5 w-3.5" /> Cetak Resi
+                    </a>
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => generateShippingLabel(order)}>
+                    <Printer className="h-3.5 w-3.5" /> Cetak Resi
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" className="w-full gap-2" onClick={handleRefreshStatus} disabled={refreshing}>
+                  {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                  {refreshing ? "Memperbarui..." : "Refresh Status"}
+                </Button>
+              </div>
+            </CardContent></Card>
+          )}
         </div>
       </div>
     </div>

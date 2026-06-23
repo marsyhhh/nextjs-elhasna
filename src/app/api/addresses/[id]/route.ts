@@ -37,10 +37,9 @@ export async function PUT(
         phone: data.phone ?? existing.phone,
         street: data.street ?? existing.street,
         city: data.city ?? existing.city,
-        cityId: data.cityId !== undefined ? (data.cityId || null) : existing.cityId,
         province: data.province ?? existing.province,
-        provinceId: data.provinceId !== undefined ? (data.provinceId || null) : existing.provinceId,
         postalCode: data.postalCode ?? existing.postalCode,
+        areaId: data.areaId !== undefined ? (data.areaId || null) : existing.areaId,
         isDefault: data.isDefault ?? existing.isDefault,
       },
     })
@@ -48,7 +47,8 @@ export async function PUT(
     return NextResponse.json(address)
   } catch (error) {
     console.error("Update address error:", error)
-    return NextResponse.json({ error: "Gagal mengupdate alamat" }, { status: 500 })
+    const message = error instanceof Error ? error.message : "Gagal mengupdate alamat"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 
