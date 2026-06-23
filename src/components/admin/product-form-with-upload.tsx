@@ -1,20 +1,26 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ImageUpload } from "@/components/admin/image-upload"
-import { toast } from "sonner"
-import { prisma } from "@/lib/prisma"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ImageUpload } from "@/components/admin/image-upload";
+import { toast } from "sonner";
+import { prisma } from "@/lib/prisma";
 
 interface ProductFormWithUploadProps {
-  categoryId: string
-  categories: Array<{ id: string; name: string }>
-  onSuccess?: () => void
+  categoryId: string;
+  categories: Array<{ id: string; name: string }>;
+  onSuccess?: () => void;
 }
 
 export function ProductFormWithUpload({
@@ -22,9 +28,9 @@ export function ProductFormWithUpload({
   categories,
   onSuccess,
 }: ProductFormWithUploadProps) {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [uploadedImages, setUploadedImages] = useState<string[]>([])
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -34,43 +40,43 @@ export function ProductFormWithUpload({
     stock: "",
     materials: "",
     categoryId: categoryId || "",
-  })
+  });
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-    }))
-  }
+    }));
+  };
 
   const handleCategoryChange = (value: string) => {
     setFormData((prev) => ({
       ...prev,
       categoryId: value,
-    }))
-  }
+    }));
+  };
 
   const handleImagesUpload = (urls: string[]) => {
-    setUploadedImages(urls)
-  }
+    setUploadedImages(urls);
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!uploadedImages.length) {
-      toast.error("Tambahkan minimal 1 gambar produk")
-      return
+      toast.error("Tambahkan minimal 1 gambar produk");
+      return;
     }
 
     if (!formData.categoryId) {
-      toast.error("Pilih kategori")
-      return
+      toast.error("Pilih kategori");
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
       // CONTOH 1: Menggunakan fetch API ke route handler yang akan memanggil Prisma
@@ -88,14 +94,14 @@ export function ProductFormWithUpload({
           images: uploadedImages,
           categoryId: formData.categoryId,
         }),
-      })
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Gagal menyimpan produk")
+        const error = await response.json();
+        throw new Error(error.error || "Gagal menyimpan produk");
       }
 
-      toast.success("Produk berhasil ditambahkan")
+      toast.success("Produk berhasil ditambahkan");
       setFormData({
         name: "",
         description: "",
@@ -105,16 +111,18 @@ export function ProductFormWithUpload({
         stock: "",
         materials: "",
         categoryId: categoryId,
-      })
-      setUploadedImages([])
-      onSuccess?.()
-      router.refresh()
+      });
+      setUploadedImages([]);
+      onSuccess?.();
+      router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Gagal menyimpan produk")
+      toast.error(
+        error instanceof Error ? error.message : "Gagal menyimpan produk",
+      );
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -123,7 +131,9 @@ export function ProductFormWithUpload({
 
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-gray-700">Nama Produk</label>
+            <label className="text-sm font-medium text-gray-700">
+              Nama Produk
+            </label>
             <Input
               type="text"
               name="name"
@@ -135,7 +145,9 @@ export function ProductFormWithUpload({
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700">Deskripsi</label>
+            <label className="text-sm font-medium text-gray-700">
+              Deskripsi
+            </label>
             <Textarea
               name="description"
               value={formData.description}
@@ -147,8 +159,13 @@ export function ProductFormWithUpload({
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700">Kategori</label>
-            <Select value={formData.categoryId} onValueChange={(v) => v && handleCategoryChange(v)}>
+            <label className="text-sm font-medium text-gray-700">
+              Kategori
+            </label>
+            <Select
+              value={formData.categoryId}
+              onValueChange={(v) => v && handleCategoryChange(v)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Pilih kategori" />
               </SelectTrigger>
@@ -164,7 +181,9 @@ export function ProductFormWithUpload({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-gray-700">Harga (IDR)</label>
+              <label className="text-sm font-medium text-gray-700">
+                Harga (IDR)
+              </label>
               <Input
                 type="number"
                 name="price"
@@ -175,7 +194,9 @@ export function ProductFormWithUpload({
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700">Harga Cost (IDR)</label>
+              <label className="text-sm font-medium text-gray-700">
+                Harga Cost (IDR)
+              </label>
               <Input
                 type="number"
                 name="costPrice"
@@ -188,7 +209,9 @@ export function ProductFormWithUpload({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-gray-700">Berat (gram)</label>
+              <label className="text-sm font-medium text-gray-700">
+                Berat (gram)
+              </label>
               <Input
                 type="number"
                 name="weight"
@@ -212,7 +235,9 @@ export function ProductFormWithUpload({
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700">Material</label>
+            <label className="text-sm font-medium text-gray-700">
+              Material
+            </label>
             <Input
               type="text"
               name="materials"
@@ -226,12 +251,16 @@ export function ProductFormWithUpload({
 
       <Card className="p-6">
         <h2 className="text-lg font-semibold mb-4">Gambar Produk</h2>
-        <ImageUpload folder="products" maxFiles={5} onUploadSuccess={handleImagesUpload} />
+        <ImageUpload
+          folder="products"
+          maxFiles={5}
+          onUploadSuccess={handleImagesUpload}
+        />
       </Card>
 
       <Button type="submit" disabled={isLoading} size="lg" className="w-full">
         {isLoading ? "Menyimpan..." : "Tambah Produk"}
       </Button>
     </form>
-  )
+  );
 }
