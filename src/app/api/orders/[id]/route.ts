@@ -46,6 +46,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (data.paymentStatus) updateData.paymentStatus = data.paymentStatus
     if (data.trackingNumber) updateData.trackingNumber = data.trackingNumber
     if (data.courier) updateData.courier = data.courier
+    if (data.biteshipWaybillId) updateData.biteshipWaybillId = data.biteshipWaybillId
+    if (data.biteshipTrackingId) updateData.biteshipTrackingId = data.biteshipTrackingId
+    if (data.biteshipStatus) updateData.biteshipStatus = data.biteshipStatus
+    if (data.biteshipLabelUrl) updateData.biteshipLabelUrl = data.biteshipLabelUrl
+    if (data.biteshipTrackingUrl) updateData.biteshipTrackingUrl = data.biteshipTrackingUrl
 
     if (data.status === "SHIPPED") updateData.shippedAt = new Date()
     if (data.status === "DELIVERED") updateData.deliveredAt = new Date()

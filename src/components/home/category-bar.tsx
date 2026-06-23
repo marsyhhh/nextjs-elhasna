@@ -1,5 +1,5 @@
-import Link from "next/link"
-import { Ribbon, Shirt, Sparkles, Umbrella, Gem } from "lucide-react"
+import Link from "next/link";
+import { Ribbon, Shirt, Sparkles, Umbrella, Gem } from "lucide-react";
 
 const categories = [
   { name: "Hijab", slug: "hijab", icon: Ribbon },
@@ -7,12 +7,12 @@ const categories = [
   { name: "Tunik", slug: "tunik", icon: Sparkles },
   { name: "Mukena", slug: "mukena", icon: Umbrella },
   { name: "Aksesoris", slug: "aksesoris", icon: Gem },
-]
+];
 
 export function CategoryBar() {
   return (
     <section className="bg-white border-b">
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      {/* <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex items-center justify-center gap-4 md:gap-8">
           {categories.map((cat) => {
             const Icon = cat.icon
@@ -32,7 +32,7 @@ export function CategoryBar() {
             )
           })}
         </div>
-      </div>
+      </div> */}
     </section>
-  )
+  );
 }

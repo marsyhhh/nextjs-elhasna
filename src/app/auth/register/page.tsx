@@ -78,7 +78,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <Card className="w-full max-w-md mx-4">
+    <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         <Link href="/" className="inline-flex items-center gap-2 mb-4 justify-center">
           <span className="text-2xl font-heading font-bold text-primary">Elhasna</span>

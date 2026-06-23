@@ -2,9 +2,15 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url)
+    const type = searchParams.get("type")
+
+    const where = type ? { type: type as "HERO" | "PROMO" } : {}
+
     const banners = await prisma.banner.findMany({
+      where,
       orderBy: { order: "asc" },
     })
     return NextResponse.json(banners)
@@ -29,6 +35,7 @@ export async function POST(req: Request) {
         link: data.link || null,
         order: data.order ?? 0,
         isActive: data.isActive ?? true,
+        type: data.type ?? "HERO",
       },
     })
     return NextResponse.json(banner, { status: 201 })

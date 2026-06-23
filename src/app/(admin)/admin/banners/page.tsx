@@ -29,7 +29,7 @@ export default function AdminBannersPage() {
 
   async function fetchBanners() {
     try {
-      const res = await fetch("/api/banners")
+      const res = await fetch("/api/banners?type=HERO")
       const data = await res.json()
       setBanners(Array.isArray(data) ? data : [])
     } catch { toast.error("Gagal memuat banner") }
@@ -69,6 +69,7 @@ export default function AdminBannersPage() {
         image: imageUrl,
         link: form.link || null,
         order: parseInt(form.order || "0"),
+        type: "HERO",
       }
 
       if (editingBanner) {

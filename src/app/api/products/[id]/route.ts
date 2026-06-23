@@ -8,7 +8,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const product = await prisma.product.findFirst({
     where: { OR: [{ id }, { slug: id }] },
-    include: { variants: true, category: true, reviews: { include: { user: true } } },
+    include: { variants: true, category: true, reviews: { include: { user: true } }, combinations: { include: { variant1: true, variant2: true } } },
   })
 
   if (!product) {
@@ -35,29 +35,59 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     delete updateData.id
+    delete updateData.variants
+    delete updateData.combinations
 
-    if (data.variants) {
-      await prisma.productVariant.deleteMany({ where: { productId: id } })
-    }
-
+    // Update product base data
     const product = await prisma.product.update({
       where: { id },
       data: {
         ...updateData,
-        variants: data.variants
-          ? {
-              create: data.variants.map((v: any) => ({
-                name: v.name,
-                type: v.type,
-                stock: v.stock || 0,
-              })),
-            }
-          : undefined,
+        slug: data.name ? generateSlug(data.name) : undefined,
       },
-      include: { variants: true, category: true },
     })
 
-    return NextResponse.json(product)
+    // Recreate variants and combinations if provided
+    if (data.variants) {
+      await prisma.productVariantCombination.deleteMany({ where: { productId: id } })
+      await prisma.productVariant.deleteMany({ where: { productId: id } })
+
+      let totalStock = product.stock
+      const variantNameMap: Record<string, string> = {}
+
+      for (const v of data.variants) {
+        const created = await prisma.productVariant.create({
+          data: { productId: id, name: v.name, type: v.type },
+        })
+        variantNameMap[created.name] = created.id
+      }
+
+      if (data.combinations?.length) {
+        for (const c of data.combinations) {
+          await prisma.productVariantCombination.create({
+            data: {
+              productId: id,
+              variant1Id: variantNameMap[c.variant1Name],
+              variant2Id: c.variant2Name ? variantNameMap[c.variant2Name] : null,
+              stock: c.stock || 0,
+            },
+          })
+        }
+        totalStock = data.combinations.reduce((sum: number, c: any) => sum + (c.stock || 0), 0)
+      }
+
+      await prisma.product.update({
+        where: { id },
+        data: { stock: totalStock },
+      })
+    }
+
+    const result = await prisma.product.findUnique({
+      where: { id },
+      include: { variants: true, category: true, combinations: { include: { variant1: true, variant2: true } } },
+    })
+
+    return NextResponse.json(result)
   } catch (error) {
     console.error("Update product error:", error)
     return NextResponse.json({ error: "Gagal mengupdate produk" }, { status: 500 })

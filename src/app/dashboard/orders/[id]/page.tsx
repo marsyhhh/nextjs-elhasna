@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -9,7 +9,20 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { formatPrice } from "@/lib/utils"
-import { ArrowLeft, Package, Truck } from "lucide-react"
+import { toast } from "sonner"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { ArrowLeft, Package, Truck, ExternalLink, XCircle, RefreshCw, Loader2 } from "lucide-react"
 
 const statusLabels: Record<string, string> = {
   PENDING_PAYMENT: "Belum Dibayar", PROCESSING: "Diproses", SHIPPED: "Dikirim", DELIVERED: "Selesai", CANCELLED: "Dibatalkan",
@@ -24,15 +37,95 @@ export default function OrderDetailPage() {
   const params = useParams()
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [checkingPayment, setCheckingPayment] = useState(false)
+  const [polling, setPolling] = useState(false)
+  const pollRef = useRef(0)
 
   useEffect(() => { fetchOrder() }, [])
 
   async function fetchOrder() {
     try {
       const res = await fetch(`/api/orders/${params.id}`)
+      if (!res.ok) throw new Error("Failed to fetch")
       setOrder(await res.json())
     } catch { console.error("Failed to fetch order") }
     setLoading(false)
+  }
+
+  async function checkPaymentStatus() {
+    setCheckingPayment(true)
+    try {
+      const res = await fetch("/api/midtrans/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: params.id }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        console.warn("[PaymentPoll] API error:", res.status, err?.error)
+        return
+      }
+
+      const data = await res.json()
+
+      if (data.paymentStatus === "SUCCESS") {
+        toast.success("Pembayaran berhasil dikonfirmasi!")
+        setPolling(false)
+        fetchOrder()
+      } else if (data.paymentStatus === "FAILED") {
+        toast.error("Pembayaran gagal")
+        setPolling(false)
+        fetchOrder()
+      }
+    } catch (err) {
+      console.error("[PaymentPoll] network error:", err)
+      toast.error("Gagal mengecek status pembayaran")
+    }
+    setCheckingPayment(false)
+  }
+
+  useEffect(() => {
+    if (!order || order.status !== "PENDING_PAYMENT") {
+      setPolling(false)
+      return
+    }
+    setPolling(true)
+    pollRef.current = 0
+    const interval = setInterval(async () => {
+      pollRef.current++
+      if (pollRef.current > 24) {
+        clearInterval(interval)
+        setPolling(false)
+        return
+      }
+      await checkPaymentStatus()
+    }, 5000)
+    return () => {
+      clearInterval(interval)
+      setPolling(false)
+    }
+  }, [order?.status])
+
+  const canCancel = order && (order.status === "PENDING_PAYMENT" || order.status === "PROCESSING")
+
+  async function handleCancel() {
+    setCancelling(true)
+    try {
+      const res = await fetch(`/api/orders/${order.id}/cancel`, { method: "PATCH" })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Gagal membatalkan pesanan")
+      }
+      toast.success("Pesanan berhasil dibatalkan")
+      setCancelOpen(false)
+      fetchOrder()
+    } catch (err: any) {
+      toast.error(err.message || "Gagal membatalkan pesanan")
+    }
+    setCancelling(false)
   }
 
   if (loading) return <p className="text-muted-foreground">Memuat...</p>
@@ -50,6 +143,31 @@ export default function OrderDetailPage() {
         </div>
         <Badge className={statusColors[order.status]}>{statusLabels[order.status] || order.status}</Badge>
       </div>
+
+      {canCancel && (
+        <div className="flex justify-end">
+          <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
+            <AlertDialogTrigger render={<Button variant="destructive">Batalkan Pesanan</Button>} />
+            <AlertDialogContent size="sm">
+              <AlertDialogHeader>
+                <AlertDialogMedia>
+                  <XCircle className="h-6 w-6 text-destructive" />
+                </AlertDialogMedia>
+                <AlertDialogTitle>Batalkan Pesanan</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Apakah Anda yakin ingin membatalkan pesanan ini? Tindakan ini tidak dapat dibatalkan.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Tidak</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCancel} disabled={cancelling}>
+                  {cancelling ? "Membatalkan..." : "Ya, Batalkan"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-6 space-y-4">
@@ -84,7 +202,15 @@ export default function OrderDetailPage() {
               <span className="text-muted-foreground">Kurir</span><span>{order.courier}</span>
               <span className="text-muted-foreground">Layanan</span><span>{order.courierService}</span>
               {order.trackingNumber && <><span className="text-muted-foreground">No. Resi</span><span className="font-medium">{order.trackingNumber}</span></>}
+              {order.biteshipStatus && <><span className="text-muted-foreground">Status Kirim</span><span>{order.biteshipStatus}</span></>}
             </div>
+            {order.biteshipTrackingUrl && (
+              <Button variant="outline" size="sm" className="w-full gap-2" asChild>
+                <a href={order.biteshipTrackingUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-3.5 w-3.5" /> Lacak Pengiriman
+                </a>
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -100,6 +226,20 @@ export default function OrderDetailPage() {
             <Separator />
             <div className="flex justify-between font-semibold text-base"><span>Total</span><span>{formatPrice(order.total)}</span></div>
           </div>
+          {order.status === "PENDING_PAYMENT" && (
+            <>
+              {polling && (
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-3">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Memeriksa pembayaran secara otomatis...
+                </p>
+              )}
+              <Button onClick={checkPaymentStatus} disabled={checkingPayment} variant="outline" size="sm" className="w-full gap-2 mt-2">
+                {checkingPayment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                {checkingPayment ? "Mengecek..." : "Cek Status Pembayaran"}
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

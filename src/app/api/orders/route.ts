@@ -45,6 +45,34 @@ export async function POST(req: Request) {
     const data = await req.json()
     const invoiceNumber = generateInvoiceNumber()
 
+    // Validate stock for each item
+    for (const item of data.items) {
+      const product = await prisma.product.findUnique({
+        where: { id: item.productId },
+        include: { combinations: true },
+      })
+
+      if (!product) {
+        return NextResponse.json({ error: `Produk tidak ditemukan: ${item.productId}` }, { status: 400 })
+      }
+
+      if (item.combinationId) {
+        const combo = product.combinations?.find((c) => c.id === item.combinationId)
+        if (!combo) {
+          return NextResponse.json({ error: `Kombinasi varian tidak ditemukan` }, { status: 400 })
+        }
+        if (combo.stock < item.quantity) {
+          return NextResponse.json({
+            error: `Stok kombinasi untuk "${product.name}" tidak mencukupi. Tersedia: ${combo.stock}`,
+          }, { status: 400 })
+        }
+      } else if (product.stock < item.quantity) {
+        return NextResponse.json({
+          error: `Stok "${product.name}" tidak mencukupi. Tersedia: ${product.stock}`,
+        }, { status: 400 })
+      }
+    }
+
     const order = await prisma.order.create({
       data: {
         invoiceNumber,
@@ -63,6 +91,7 @@ export async function POST(req: Request) {
           create: data.items.map((item: any) => ({
             productId: item.productId,
             variantId: item.variantId || null,
+            combinationId: item.combinationId || null,
             quantity: item.quantity,
             price: item.price,
             subtotal: item.price * item.quantity,
@@ -74,6 +103,13 @@ export async function POST(req: Request) {
         address: true,
       },
     })
+
+    if (data.voucherCode) {
+      await prisma.voucher.update({
+        where: { code: data.voucherCode },
+        data: { usedCount: { increment: 1 } },
+      })
+    }
 
     await prisma.cartItem.deleteMany({
       where: { cart: { userId: session.user.id } },

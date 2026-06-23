@@ -40,10 +40,9 @@ export async function POST(req: Request) {
         phone: data.phone,
         street: data.street,
         city: data.city,
-        cityId: data.cityId || null,
         province: data.province,
-        provinceId: data.provinceId || null,
         postalCode: data.postalCode,
+        areaId: data.areaId || null,
         isDefault: data.isDefault || false,
       },
     })
@@ -51,6 +50,7 @@ export async function POST(req: Request) {
     return NextResponse.json(address, { status: 201 })
   } catch (error) {
     console.error("Create address error:", error)
-    return NextResponse.json({ error: "Gagal menyimpan alamat" }, { status: 500 })
+    const message = error instanceof Error ? error.message : "Gagal menyimpan alamat"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

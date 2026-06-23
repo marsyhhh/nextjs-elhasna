@@ -1,21 +1,22 @@
-import Link from "next/link"
-import Image from "next/image"
-import { Heart, Star } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { formatPrice } from "@/lib/utils"
+import Link from "next/link";
+import Image from "next/image";
+import { Heart, Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { formatPrice } from "@/lib/utils";
 
 interface ProductCardProps {
-  id: string
-  name: string
-  slug: string
-  price: number
-  discountPrice?: number | null
-  image: string
-  rating?: number
-  reviewCount?: number
-  variants?: { name: string; type: string }[]
-  isFlashSale?: boolean
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  discountPrice?: number | null;
+  image: string;
+  rating?: number;
+  soldCount?: number;
+  stock?: number;
+  variants?: { name: string; type: string }[];
+  isFlashSale?: boolean;
 }
 
 export function ProductCard({
@@ -25,12 +26,15 @@ export function ProductCard({
   discountPrice,
   image,
   rating = 0,
-  reviewCount = 0,
+  soldCount = 0,
+  stock = 0,
   variants = [],
   isFlashSale,
 }: ProductCardProps) {
-  const hasDiscount = discountPrice && discountPrice < price
-  const discountPercent = hasDiscount ? Math.round(((price - discountPrice!) / price) * 100) : 0
+  const hasDiscount = discountPrice && discountPrice < price;
+  const discountPercent = hasDiscount
+    ? Math.round(((price - discountPrice!) / price) * 100)
+    : 0;
 
   return (
     <div className="group relative">
@@ -49,6 +53,14 @@ export function ProductCard({
           </div>
         )}
 
+        {stock <= 0 && (
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
+            <Badge className="bg-destructive text-destructive-foreground text-sm px-4 py-1.5">
+              Stok Habis
+            </Badge>
+          </div>
+        )}
+
         {isFlashSale && (
           <Badge className="absolute top-2 left-2 bg-destructive text-destructive-foreground text-xs">
             Flash Sale
@@ -61,43 +73,49 @@ export function ProductCard({
           </Badge>
         )}
 
-        <Button
+        {/* <Button
           variant="ghost"
           size="icon"
           className="absolute top-2 right-2 h-8 w-8 rounded-full bg-white/80 opacity-0 group-hover:opacity-100 transition-opacity"
         >
           <Heart className="h-4 w-4" />
-        </Button>
+        </Button> */}
 
         <Link href={`/products/${slug}`} className="absolute inset-0" />
       </div>
 
       <Link href={`/products/${slug}`}>
         <div className="space-y-1">
-          <p className="text-sm font-medium line-clamp-2 leading-snug">{name}</p>
+          <p className="text-sm font-medium line-clamp-2 leading-snug">
+            {name}
+          </p>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
+            {/* <div className="flex items-center gap-1">
               <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
               <span className="text-xs text-muted-foreground">
                 {rating.toFixed(1)}
               </span>
-            </div>
+            </div> */}
             <span className="text-xs text-muted-foreground">
-              ({reviewCount} terjual)
+              ({soldCount} terjual)
             </span>
           </div>
 
           <div className="flex items-center gap-2">
             {hasDiscount ? (
               <>
-                <span className="font-semibold text-sm">{formatPrice(discountPrice!)}</span>
+                <span className="font-semibold text-sm">
+                  {formatPrice(discountPrice!)}
+                </span>
                 <span className="text-xs text-muted-foreground line-through">
                   {formatPrice(price)}
                 </span>
               </>
             ) : (
-              <span className="font-semibold text-sm">{formatPrice(price)}</span>
+              <span className="font-semibold text-sm">
+                {formatPrice(price)}
+              </span>
             )}
           </div>
 
@@ -107,17 +125,21 @@ export function ProductCard({
                 <div
                   key={i}
                   className="h-4 w-4 rounded-full border"
-                  style={{ backgroundColor: v.type === "color" ? v.name : "#e5e7eb" }}
+                  style={{
+                    backgroundColor: v.type === "color" ? v.name : "#e5e7eb",
+                  }}
                   title={v.name}
                 />
               ))}
               {variants.length > 5 && (
-                <span className="text-xs text-muted-foreground">+{variants.length - 5}</span>
+                <span className="text-xs text-muted-foreground">
+                  +{variants.length - 5}
+                </span>
               )}
             </div>
           )}
         </div>
       </Link>
     </div>
-  )
+  );
 }

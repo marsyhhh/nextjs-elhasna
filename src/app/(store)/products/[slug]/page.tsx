@@ -7,7 +7,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   const product = await prisma.product.findFirst({
     where: { OR: [{ slug }, { id: slug }], isActive: true },
-    include: { variants: true, category: true, reviews: { include: { user: true }, orderBy: { createdAt: "desc" } } },
+    include: { variants: true, category: true, reviews: { include: { user: true }, orderBy: { createdAt: "desc" } }, combinations: { include: { variant1: true, variant2: true } } },
   })
 
   if (!product) notFound()

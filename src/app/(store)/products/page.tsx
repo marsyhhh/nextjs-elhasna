@@ -1,7 +1,7 @@
+import { Suspense } from "react"
 import { prisma } from "@/lib/prisma"
 import { ProductCard } from "@/components/product/product-card"
-import { Input } from "@/components/ui/input"
-import { Search } from "lucide-react"
+import { ProductFilter } from "@/components/product/product-filter"
 
 interface Props {
   searchParams: Promise<{ [key: string]: string | undefined }>
@@ -32,6 +32,7 @@ export default async function ProductsPage({ searchParams }: Props) {
   let orderBy: any = { createdAt: "desc" }
   if (sort === "price_asc") orderBy = { price: "asc" }
   else if (sort === "price_desc") orderBy = { price: "desc" }
+  else if (sort === "created_at_asc") orderBy = { createdAt: "asc" }
   else if (sort === "name") orderBy = { name: "asc" }
 
   const products = await prisma.product.findMany({
@@ -51,6 +52,10 @@ export default async function ProductsPage({ searchParams }: Props) {
         </div>
       </div>
 
+      <Suspense fallback={<div className="h-9 mb-6" />}>
+        <ProductFilter />
+      </Suspense>
+
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {products.map((product) => (
           <ProductCard
@@ -61,6 +66,8 @@ export default async function ProductsPage({ searchParams }: Props) {
             price={product.price}
             discountPrice={product.discountPrice}
             image={product.images[0] || ""}
+            soldCount={product.soldCount}
+            stock={product.stock}
             variants={product.variants}
             isFlashSale={product.isFlashSale}
           />

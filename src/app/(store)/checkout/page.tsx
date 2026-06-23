@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useCartStore } from "@/lib/store/cart-store"
+import VoucherInput from "@/components/checkout/voucher-input"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,12 +23,21 @@ interface ShippingOption {
   description: string
   cost: number
   etd: string
+  courier: string
+  courierName: string
 }
+
+const couriers = [
+  { value: "jne", label: "JNE" },
+  { value: "jnt", label: "J&T" },
+  { value: "sicepat", label: "SiCepat" },
+  { value: "anteraja", label: "AnterAja" },
+]
 
 export default function CheckoutPage() {
   const router = useRouter()
   const { data: session } = useSession()
-  const { items, getSubtotal, clearCart } = useCartStore()
+  const { items, getSubtotal, clearCart, voucher, removeVoucher } = useCartStore()
 
   const [addresses, setAddresses] = useState<any[]>([])
   const [selectedAddress, setSelectedAddress] = useState<string>("")
@@ -41,7 +51,9 @@ export default function CheckoutPage() {
   const [loadingShipping, setLoadingShipping] = useState(false)
 
   const subtotal = getSubtotal()
-  const total = subtotal + shippingCost
+  const discount = voucher?.discount ?? 0
+  const effectiveShipping = voucher?.isShippingFree ? 0 : shippingCost
+  const total = subtotal - discount + effectiveShipping
 
   useEffect(() => {
     if (!session) {
@@ -76,9 +88,8 @@ export default function CheckoutPage() {
     const address = addresses.find((a) => a.id === selectedAddress)
     if (!address) return
 
-    if (!address.cityId) {
-      toast.error("Alamat belum memiliki kota tujuan. Perbarui alamat di dashboard.")
-      setLoadingShipping(false)
+    if (!address.postalCode) {
+      toast.error("Alamat belum memiliki kode pos. Perbarui alamat di dashboard.")
       return
     }
 
@@ -90,9 +101,20 @@ export default function CheckoutPage() {
     const totalWeight = items.reduce((sum, item) => sum + item.weight * item.quantity, 0)
 
     try {
-      const res = await fetch(
-        `/api/rajaongkir/cost?destination=${address.cityId}&weight=${totalWeight}&courier=${courier}`
-      )
+      const res = await fetch("/api/biteship/rates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destinationPostalCode: address.postalCode,
+          couriers: courier,
+          items: items.map((item) => ({
+            name: item.name,
+            value: item.discountPrice || item.price,
+            weight: item.weight,
+            quantity: item.quantity,
+          })),
+        }),
+      })
 
       const data = await res.json()
 
@@ -102,8 +124,16 @@ export default function CheckoutPage() {
         return
       }
 
-      if (data.services) {
-        setShippingOptions(data.services)
+      if (data.pricing && data.pricing.length > 0) {
+        const options: ShippingOption[] = data.pricing.map((p: any) => ({
+          service: p.courier_service_code,
+          description: p.courier_service_name,
+          cost: p.price,
+          etd: p.shipment_duration_range || p.duration?.replace(" days", "").trim() || "",
+          courier: p.company,
+          courierName: p.courier_name,
+        }))
+        setShippingOptions(options)
       } else {
         toast.error("Tidak ada layanan pengiriman tersedia")
       }
@@ -129,7 +159,31 @@ export default function CheckoutPage() {
       return
     }
 
+    let freshDiscount = discount
+    let freshShippingFree = voucher?.isShippingFree ?? false
+
+    if (voucher) {
+      const validateRes = await fetch("/api/vouchers/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: voucher.code, subtotal }),
+      })
+
+      const validateData = await validateRes.json()
+      if (!validateData.valid) {
+        removeVoucher()
+        toast.error(validateData.error)
+        return
+      }
+
+      freshDiscount = validateData.discount
+      freshShippingFree = validateData.isShippingFree
+    }
+
     setLoading(true)
+
+    const finalShipping = freshShippingFree ? 0 : shippingCost
+    const finalTotal = subtotal - freshDiscount + finalShipping
 
     try {
       const res = await fetch("/api/orders", {
@@ -138,9 +192,10 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           addressId: selectedAddress,
           subtotal,
-          shippingCost,
-          discount: 0,
-          total,
+          shippingCost: finalShipping,
+          discount: freshDiscount,
+          total: finalTotal,
+          voucherCode: voucher?.code || null,
           notes,
           courier,
           courierService: selectedShipping,
@@ -148,6 +203,7 @@ export default function CheckoutPage() {
           items: items.map((item) => ({
             productId: item.productId,
             variantId: item.variantId,
+            combinationId: item.combinationId,
             quantity: item.quantity,
             price: item.discountPrice || item.price,
           })),
@@ -225,12 +281,7 @@ export default function CheckoutPage() {
               <div className="space-y-4">
                 <RadioGroup value={courier} onValueChange={setCourier}>
                   <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { value: "jne", label: "JNE" },
-                      { value: "jnt", label: "J&T" },
-                      { value: "pos", label: "POS Indonesia" },
-                      { value: "sicepat", label: "SiCepat" },
-                    ].map((c) => (
+                    {couriers.map((c) => (
                       <div key={c.value} className="flex items-center gap-2 p-3 rounded-lg border has-[[data-state=checked]]:border-primary">
                         <RadioGroupItem value={c.value} id={`courier-${c.value}`} />
                         <Label htmlFor={`courier-${c.value}`} className="cursor-pointer text-sm">{c.label}</Label>
@@ -246,14 +297,14 @@ export default function CheckoutPage() {
                     <Label>Pilih Layanan</Label>
                     {shippingOptions.map((opt) => (
                       <div
-                        key={opt.service}
+                        key={`${opt.courier}-${opt.service}`}
                         className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${
                           selectedShipping === opt.service ? "border-primary bg-primary/5" : ""
                         }`}
                         onClick={() => handleShippingSelect(opt.service, opt.cost, opt.etd)}
                       >
                         <div>
-                          <p className="text-sm font-medium">{opt.service}</p>
+                          <p className="text-sm font-medium">{opt.courierName} - {opt.service}</p>
                           <p className="text-xs text-muted-foreground">{opt.description} ({opt.etd} hari)</p>
                         </div>
                         <p className="font-semibold text-sm">{formatPrice(opt.cost)}</p>
@@ -281,7 +332,8 @@ export default function CheckoutPage() {
           </Card>
         </div>
 
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-6">
+          <VoucherInput />
           <Card className="sticky top-24">
             <CardContent className="p-6 space-y-4">
               <h3 className="font-semibold">Ringkasan Pesanan</h3>
@@ -311,9 +363,21 @@ export default function CheckoutPage() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatPrice(subtotal)}</span>
                 </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Diskon {voucher?.code}</span>
+                    <span>-{formatPrice(discount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Ongkos Kirim</span>
-                  <span>{shippingCost > 0 ? formatPrice(shippingCost) : "-"}</span>
+                  <span>
+                    {voucher?.isShippingFree
+                      ? "Gratis"
+                      : shippingCost > 0
+                      ? formatPrice(shippingCost)
+                      : "-"}
+                  </span>
                 </div>
               </div>
 
@@ -336,7 +400,6 @@ export default function CheckoutPage() {
           </Card>
         </div>
       </div>
-
     </div>
   )
 }

@@ -22,6 +22,7 @@ export async function PUT(
     if (data.link !== undefined) updateData.link = data.link || null
     if (data.order !== undefined) updateData.order = data.order
     if (data.isActive !== undefined) updateData.isActive = data.isActive
+    if (data.type !== undefined) updateData.type = data.type
 
     const banner = await prisma.banner.update({
       where: { id },
