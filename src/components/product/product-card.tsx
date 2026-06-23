@@ -13,7 +13,8 @@ interface ProductCardProps {
   discountPrice?: number | null
   image: string
   rating?: number
-  reviewCount?: number
+  soldCount?: number
+  stock?: number
   variants?: { name: string; type: string }[]
   isFlashSale?: boolean
 }
@@ -25,7 +26,8 @@ export function ProductCard({
   discountPrice,
   image,
   rating = 0,
-  reviewCount = 0,
+  soldCount = 0,
+  stock = 0,
   variants = [],
   isFlashSale,
 }: ProductCardProps) {
@@ -46,6 +48,14 @@ export function ProductCard({
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/40 text-sm bg-muted">
             Gambar tidak tersedia
+          </div>
+        )}
+
+        {stock <= 0 && (
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
+            <Badge className="bg-destructive text-destructive-foreground text-sm px-4 py-1.5">
+              Stok Habis
+            </Badge>
           </div>
         )}
 
@@ -84,7 +94,7 @@ export function ProductCard({
               </span>
             </div>
             <span className="text-xs text-muted-foreground">
-              ({reviewCount} terjual)
+              ({soldCount} terjual)
             </span>
           </div>
 

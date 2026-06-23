@@ -203,6 +203,7 @@ export default function CheckoutPage() {
           items: items.map((item) => ({
             productId: item.productId,
             variantId: item.variantId,
+            combinationId: item.combinationId,
             quantity: item.quantity,
             price: item.discountPrice || item.price,
           })),

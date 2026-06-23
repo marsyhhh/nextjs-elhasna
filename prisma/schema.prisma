@@ -141,6 +141,7 @@ model Product {
   costPrice   Int?
   weight      Int
   stock       Int      @default(0)
+  soldCount   Int      @default(0)
   images      String[]
   materials   String?
   isActive    Boolean  @default(true)
@@ -152,11 +153,12 @@ model Product {
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
 
-  variants   ProductVariant[]
-  reviews    Review[]
-  wishlist   WishlistItem[]
-  cartItems  CartItem[]
-  orderItems OrderItem[]
+  variants     ProductVariant[]
+  combinations ProductVariantCombination[]
+  reviews      Review[]
+  wishlist     WishlistItem[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
 
   @@map("products")
 }
@@ -166,14 +168,32 @@ model ProductVariant {
   productId String
   name      String
   type      String
-  stock     Int     @default(0)
 
-  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product    Product                       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  combosAs1  ProductVariantCombination[]   @relation("CombVariant1")
+  combosAs2  ProductVariantCombination[]   @relation("CombVariant2")
   cartItems  CartItem[]
   orderItems OrderItem[]
 
   @@unique([productId, name, type])
   @@map("product_variants")
+}
+
+model ProductVariantCombination {
+  id         String  @id @default(cuid())
+  productId  String
+  variant1Id String
+  variant2Id String?
+  stock      Int     @default(0)
+
+  product    Product                       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant1   ProductVariant                @relation("CombVariant1", fields: [variant1Id], references: [id])
+  variant2   ProductVariant?               @relation("CombVariant2", fields: [variant2Id], references: [id])
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@unique([productId, variant1Id, variant2Id])
+  @@map("product_variant_combinations")
 }
 
 model Review {
@@ -217,18 +237,20 @@ model Cart {
 }
 
 model CartItem {
-  id        String   @id @default(cuid())
-  cartId    String
-  productId String
-  variantId String?
-  quantity  Int      @default(1)
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  cartId         String
+  productId      String
+  variantId      String?
+  combinationId  String?
+  quantity       Int      @default(1)
+  createdAt      DateTime @default(now())
 
-  cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variant ProductVariant? @relation(fields: [variantId], references: [id])
+  cart         Cart                          @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product      Product                       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant      ProductVariant?               @relation(fields: [variantId], references: [id])
+  combination  ProductVariantCombination?    @relation(fields: [combinationId], references: [id])
 
-  @@unique([cartId, productId, variantId])
+  @@unique([cartId, productId, combinationId])
   @@map("cart_items")
 }
 
@@ -271,17 +293,19 @@ model Order {
 }
 
 model OrderItem {
-  id        String   @id @default(cuid())
-  orderId   String
-  productId String
-  variantId String?
-  quantity  Int
-  price     Int
-  subtotal  Int
+  id             String   @id @default(cuid())
+  orderId        String
+  productId      String
+  variantId      String?
+  combinationId  String?
+  quantity       Int
+  price          Int
+  subtotal       Int
 
-  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product         @relation(fields: [productId], references: [id])
-  variant ProductVariant? @relation(fields: [variantId], references: [id])
+  order        Order                         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product      Product                       @relation(fields: [productId], references: [id])
+  variant      ProductVariant?               @relation(fields: [variantId], references: [id])
+  combination  ProductVariantCombination?    @relation(fields: [combinationId], references: [id])
 
   @@map("order_items")
 }

@@ -24,6 +24,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
         {products.map((product) => (
           <ProductCard key={product.id} id={product.id} name={product.name} slug={product.slug}
             price={product.price} discountPrice={product.discountPrice} image={product.images[0] || ""}
+            soldCount={product.soldCount} stock={product.stock}
             variants={product.variants} />
         ))}
       </div>

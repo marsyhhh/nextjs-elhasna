@@ -11,6 +11,7 @@ export interface CartItem {
   image: string
   variantId?: string
   variantName?: string
+  combinationId?: string
   quantity: number
   weight: number
   stock: number

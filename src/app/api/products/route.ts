@@ -36,11 +36,11 @@ export async function GET(req: Request) {
 
   const products = await prisma.product.findMany({
     where,
-    include: { variants: true, category: true },
-    orderBy,
-  })
+  include: { variants: true, category: true, combinations: { include: { variant1: true, variant2: true } } },
+  orderBy,
+})
 
-  return NextResponse.json(products)
+return NextResponse.json(products)
 }
 
 export async function POST(req: Request) {
@@ -58,6 +58,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Produk dengan nama ini sudah ada" }, { status: 400 })
     }
 
+    // Create product base
     const product = await prisma.product.create({
       data: {
         name: data.name,
@@ -73,18 +74,47 @@ export async function POST(req: Request) {
         isFlashSale: data.isFlashSale || false,
         flashSaleEndsAt: data.flashSaleEndsAt || null,
         categoryId: data.categoryId,
-        variants: {
-          create: data.variants?.map((v: any) => ({
-            name: v.name,
-            type: v.type,
-            stock: v.stock || 0,
-          })) || [],
-        },
       },
-      include: { variants: true, category: true },
     })
 
-    return NextResponse.json(product, { status: 201 })
+    // Create variants and combinations
+    let totalStock = data.stock || 0
+    if (data.variants?.length) {
+      const variantNameMap: Record<string, string> = {}
+      for (const v of data.variants) {
+        const created = await prisma.productVariant.create({
+          data: { productId: product.id, name: v.name, type: v.type },
+        })
+        variantNameMap[created.name] = created.id
+      }
+
+      if (data.combinations?.length) {
+        for (const c of data.combinations) {
+          await prisma.productVariantCombination.create({
+            data: {
+              productId: product.id,
+              variant1Id: variantNameMap[c.variant1Name],
+              variant2Id: c.variant2Name ? variantNameMap[c.variant2Name] : null,
+              stock: c.stock || 0,
+            },
+          })
+        }
+        totalStock = data.combinations.reduce((sum: number, c: any) => sum + (c.stock || 0), 0)
+      }
+
+      // Update auto-calculated stock
+      await prisma.product.update({
+        where: { id: product.id },
+        data: { stock: totalStock },
+      })
+    }
+
+    const result = await prisma.product.findUnique({
+      where: { id: product.id },
+      include: { variants: true, category: true, combinations: { include: { variant1: true, variant2: true } } },
+    })
+
+    return NextResponse.json(result, { status: 201 })
   } catch (error) {
     console.error("Create product error:", error)
     return NextResponse.json({ error: "Gagal membuat produk" }, { status: 500 })

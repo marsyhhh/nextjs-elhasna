@@ -50,6 +50,30 @@ export async function POST(req: Request) {
       data: updateData,
     })
 
+    // Decrement stock & increment soldCount on successful payment
+    if (transaction_status === "capture" || transaction_status === "settlement") {
+      const orderItems = await prisma.orderItem.findMany({
+        where: { orderId: order.id },
+      })
+
+      for (const item of orderItems) {
+        await prisma.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: { decrement: item.quantity },
+            soldCount: { increment: item.quantity },
+          },
+        })
+
+        if (item.combinationId) {
+          await prisma.productVariantCombination.update({
+            where: { id: item.combinationId },
+            data: { stock: { decrement: item.quantity } },
+          })
+        }
+      }
+    }
+
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error("Webhook error:", error)

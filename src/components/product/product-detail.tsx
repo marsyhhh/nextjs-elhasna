@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { useCartStore } from "@/lib/store/cart-store"
@@ -18,7 +18,8 @@ interface ProductDetailProps {
 export function ProductDetail({ product }: ProductDetailProps) {
   const router = useRouter()
   const { addItem } = useCartStore()
-  const [selectedVariant, setSelectedVariant] = useState<string | null>(null)
+  const [selectedVar1Id, setSelectedVar1Id] = useState<string | null>(null)
+  const [selectedVar2Id, setSelectedVar2Id] = useState<string | null>(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [quantity, setQuantity] = useState(1)
 
@@ -28,23 +29,69 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const hasDiscount = product.discountPrice && product.discountPrice < product.price
   const discountPercent = hasDiscount ? Math.round(((product.price - product.discountPrice) / product.price) * 100) : 0
 
-  const colorVariants = product.variants?.filter((v: any) => v.type === "color") || []
-  const sizeVariants = product.variants?.filter((v: any) => v.type === "size") || []
+  // Group variants by type dynamically
+  const variantGroups = useMemo(() => {
+    const groups: Record<string, any[]> = {}
+    if (product.variants) {
+      for (const v of product.variants) {
+        if (!groups[v.type]) groups[v.type] = []
+        groups[v.type].push(v)
+      }
+    }
+    return groups
+  }, [product.variants])
+
+  const groupKeys = Object.keys(variantGroups)
+  const hasVariants = groupKeys.length > 0
+
+  // Find matching combination
+  const selectedCombination = useMemo(() => {
+    if (!hasVariants || !product.combinations) return null
+    return product.combinations.find((c: any) => {
+      if (groupKeys.length === 1) {
+        return c.variant1Id === (selectedVar1Id || selectedVar2Id) && !c.variant2Id
+      }
+      return c.variant1Id === selectedVar1Id && c.variant2Id === selectedVar2Id
+    })
+  }, [selectedVar1Id, selectedVar2Id, product.combinations, hasVariants, groupKeys.length])
+
+  const comboStock = selectedCombination?.stock ?? 0
+  const canAddToCart = !hasVariants || (selectedVar1Id && (groupKeys.length === 1 || selectedVar2Id))
+  const isOutOfStock = hasVariants ? (canAddToCart && comboStock <= 0) : product.stock <= 0
+
+  function getAvailableStock(): number {
+    if (!hasVariants) return product.stock
+    if (!canAddToCart) return 0
+    return comboStock
+  }
 
   function handleAddToCart() {
+    if (hasVariants && !canAddToCart) {
+      toast.error("Pilih semua varian produk terlebih dahulu!")
+      return
+    }
+    if (getAvailableStock() <= 0) {
+      toast.error("Stok produk habis!")
+      return
+    }
+
+    const var1 = selectedVar1Id ? variantGroups[groupKeys[0]]?.find((v: any) => v.id === selectedVar1Id) : null
+    const var2 = selectedVar2Id && groupKeys.length > 1 ? variantGroups[groupKeys[1]]?.find((v: any) => v.id === selectedVar2Id) : null
+
     addItem({
-      id: `${product.id}-${selectedVariant || ""}`,
+      id: `${product.id}-${selectedCombination?.id || ""}`,
       productId: product.id,
       name: product.name,
       slug: product.slug,
       price: product.price,
       discountPrice: product.discountPrice,
       image: product.images?.[0] || "",
-      variantId: selectedVariant || undefined,
-      variantName: selectedVariant ? product.variants?.find((v: any) => v.id === selectedVariant)?.name : undefined,
+      variantId: selectedVar1Id || selectedVar2Id || undefined,
+      variantName: var1?.name || var2?.name || undefined,
+      combinationId: selectedCombination?.id,
       quantity,
       weight: product.weight,
-      stock: product.stock,
+      stock: getAvailableStock(),
     })
     toast.success("Produk ditambahkan ke keranjang!")
   }
@@ -68,6 +115,11 @@ export function ProductDetail({ product }: ProductDetailProps) {
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30 bg-muted">
                 Gambar tidak tersedia
+              </div>
+            )}
+            {isOutOfStock && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
+                <Badge className="bg-destructive text-destructive-foreground text-lg px-6 py-2">Stok Habis</Badge>
               </div>
             )}
             {product.isFlashSale && (
@@ -108,7 +160,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                 <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                 <span className="text-sm font-medium">4.8</span>
               </div>
-              <span className="text-sm text-muted-foreground">(120 terjual)</span>
+              <span className="text-sm text-muted-foreground">({product.soldCount ?? 0} terjual)</span>
             </div>
           </div>
 
@@ -133,43 +185,31 @@ export function ProductDetail({ product }: ProductDetailProps) {
             </div>
           )}
 
-          {colorVariants.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium mb-2">Warna</h3>
-              <div className="flex flex-wrap gap-2">
-                {colorVariants.map((v: any) => (
-                  <button
-                    key={v.id}
-                    onClick={() => setSelectedVariant(v.id)}
-                    className={`px-4 py-2 text-sm rounded-lg border transition-colors ${
-                      selectedVariant === v.id ? "border-primary bg-primary/5 text-primary" : "hover:border-muted-foreground"
-                    }`}
-                  >
-                    {v.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Dynamic variant selectors */}
+          {groupKeys.map((type, idx) => {
+            const variants = variantGroups[type]
+            const selectedId = idx === 0 ? selectedVar1Id : selectedVar2Id
+            const setSelectedId = idx === 0 ? setSelectedVar1Id : setSelectedVar2Id
 
-          {sizeVariants.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium mb-2">Ukuran</h3>
-              <div className="flex flex-wrap gap-2">
-                {sizeVariants.map((v: any) => (
-                  <button
-                    key={v.id}
-                    onClick={() => setSelectedVariant(v.id)}
-                    className={`px-4 py-2 text-sm rounded-lg border transition-colors ${
-                      selectedVariant === v.id ? "border-primary bg-primary/5 text-primary" : "hover:border-muted-foreground"
-                    }`}
-                  >
-                    {v.name}
-                  </button>
-                ))}
+            return (
+              <div key={type}>
+                <h3 className="text-sm font-medium mb-2">{type}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {variants.map((v: any) => (
+                    <button
+                      key={v.id}
+                      onClick={() => setSelectedId(v.id)}
+                      className={`px-4 py-2 text-sm rounded-lg border transition-colors ${
+                        selectedId === v.id ? "border-primary bg-primary/5 text-primary" : "hover:border-muted-foreground"
+                      }`}
+                    >
+                      {v.name}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })}
 
           <div>
             <h3 className="text-sm font-medium mb-2">Jumlah</h3>
@@ -178,16 +218,22 @@ export function ProductDetail({ product }: ProductDetailProps) {
                 <Minus className="h-4 w-4" />
               </button>
               <span className="w-14 text-center font-medium">{quantity}</span>
-              <button onClick={() => setQuantity(quantity + 1)} className="h-10 w-10 flex items-center justify-center">
+              <button onClick={() => setQuantity(Math.min(Math.max(getAvailableStock(), 1), quantity + 1))} className="h-10 w-10 flex items-center justify-center">
                 <Plus className="h-4 w-4" />
               </button>
             </div>
+            {getAvailableStock() > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">Stok: {getAvailableStock()}</p>
+            )}
+            {hasVariants && !canAddToCart && (
+              <p className="text-xs text-muted-foreground mt-1">Pilih {groupKeys.join(" dan ")} terlebih dahulu</p>
+            )}
           </div>
 
           <div className="flex gap-3">
-            <Button size="lg" className="flex-1 rounded-full gap-2" onClick={handleAddToCart}>
+            <Button size="lg" className="flex-1 rounded-full gap-2" onClick={handleAddToCart} disabled={isOutOfStock || (hasVariants && !canAddToCart)}>
               <ShoppingBag className="h-5 w-5" />
-              Keranjang
+              {isOutOfStock ? "Stok Habis" : hasVariants && !canAddToCart ? "Pilih Varian" : "Keranjang"}
             </Button>
             <Button size="lg" variant="outline" className="rounded-full">
               <Heart className="h-5 w-5" />

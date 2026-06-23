@@ -35,5 +35,25 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     },
   })
 
+  // Restore stock if order was already paid (PROCESSING status)
+  if (order.status === "PROCESSING") {
+    for (const item of updated.items) {
+      await prisma.product.update({
+        where: { id: item.productId },
+        data: {
+          stock: { increment: item.quantity },
+          soldCount: { decrement: item.quantity },
+        },
+      })
+
+      if (item.combinationId) {
+        await prisma.productVariantCombination.update({
+          where: { id: item.combinationId },
+          data: { stock: { increment: item.quantity } },
+        })
+      }
+    }
+  }
+
   return NextResponse.json(updated)
 }

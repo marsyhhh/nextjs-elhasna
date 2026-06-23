@@ -66,6 +66,8 @@ export default async function ProductsPage({ searchParams }: Props) {
             price={product.price}
             discountPrice={product.discountPrice}
             image={product.images[0] || ""}
+            soldCount={product.soldCount}
+            stock={product.stock}
             variants={product.variants}
             isFlashSale={product.isFlashSale}
           />

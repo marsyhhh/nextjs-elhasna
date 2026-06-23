@@ -29,30 +29,42 @@ export async function POST(req: Request) {
 
     const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
 
+    // Merge items by productId to avoid duplicates
+    const itemMap = new Map<string, { id: string; price: number; quantity: number; name: string }>()
+    for (const item of order.items) {
+      const key = item.productId
+      if (itemMap.has(key)) {
+        const existing = itemMap.get(key)!
+        existing.quantity += item.quantity
+      } else {
+        itemMap.set(key, {
+          id: key,
+          price: item.price,
+          quantity: item.quantity,
+          name: item.product.name.substring(0, 50),
+        })
+      }
+    }
+
+    const itemDetails = [
+      ...Array.from(itemMap.values()),
+      ...(order.discount > 0 ? [{ id: "DISCOUNT", price: -order.discount, quantity: 1, name: "Diskon Voucher" }] : []),
+      ...(order.shippingCost > 0 ? [{ id: "SHIPPING", price: order.shippingCost, quantity: 1, name: "Ongkos Kirim" }] : []),
+    ]
+
+    const grossAmount = itemDetails.reduce((sum, item) => sum + item.price * item.quantity, 0)
+
     const transactionDetails = {
       transaction_details: {
         order_id: order.invoiceNumber,
-        gross_amount: order.total,
+        gross_amount: grossAmount,
       },
       customer_details: {
         first_name: order.user.name || "Customer",
         email: order.user.email,
         phone: order.user.phone || "",
       },
-      item_details: [
-        ...order.items.map((item) => ({
-          id: item.productId,
-          price: item.price,
-          quantity: item.quantity,
-          name: item.product.name.substring(0, 50),
-        })),
-        ...(order.shippingCost > 0 ? [{
-          id: "SHIPPING",
-          price: order.shippingCost,
-          quantity: 1,
-          name: "Ongkos Kirim",
-        }] : []),
-      ],
+      item_details: itemDetails,
       callbacks: {
         finish: `${baseUrl}/dashboard/orders/${order.id}`,
       },

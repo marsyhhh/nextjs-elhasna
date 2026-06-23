@@ -70,6 +70,8 @@ export default async function HomePage() {
                   price={product.price}
                   discountPrice={product.discountPrice}
                   image={product.images[0] || ""}
+                  soldCount={product.soldCount}
+                  stock={product.stock}
                   variants={product.variants}
                   isFlashSale
                 />
@@ -97,6 +99,8 @@ export default async function HomePage() {
                 price={product.price}
                 discountPrice={product.discountPrice}
                 image={product.images[0] || ""}
+                soldCount={product.soldCount}
+                stock={product.stock}
                 variants={product.variants}
               />
             ))}
@@ -121,6 +125,8 @@ export default async function HomePage() {
                 price={product.price}
                 discountPrice={product.discountPrice}
                 image={product.images[0] || ""}
+                soldCount={product.soldCount}
+                stock={product.stock}
                 variants={product.variants}
               />
             ))}
