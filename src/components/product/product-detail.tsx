@@ -131,7 +131,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                 src={mainImage}
                 alt={product.name}
                 fill
-                className="object-cover"
+                className="object-contain"
                 sizes="(max-width: 768px) 100vw, 50vw"
                 priority
               />
@@ -171,7 +171,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                     src={image}
                     alt={`${product.name} - ${index + 1}`}
                     fill
-                    className="object-cover"
+                    className="object-contain"
                     sizes="100px"
                   />
                 </button>

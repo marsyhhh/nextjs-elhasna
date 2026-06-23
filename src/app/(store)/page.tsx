@@ -8,13 +8,26 @@ import { Timer } from "lucide-react"
 import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 
-async function getFeaturedProducts() {
+async function getRecommendedProducts() {
+  try {
+    return await prisma.product.findMany({
+      where: { isActive: true },
+      include: { variants: true },
+      orderBy: { soldCount: "desc" },
+      take: 10,
+    })
+  } catch {
+    return []
+  }
+}
+
+async function getNewestProducts() {
   try {
     return await prisma.product.findMany({
       where: { isActive: true },
       include: { variants: true },
       orderBy: { createdAt: "desc" },
-      take: 20,
+      take: 10,
     })
   } catch {
     return []
@@ -35,8 +48,9 @@ async function getFlashSaleProducts() {
 }
 
 export default async function HomePage() {
-  const [products, flashProducts] = await Promise.all([
-    getFeaturedProducts(),
+  const [recommended, newest, flashProducts] = await Promise.all([
+    getRecommendedProducts(),
+    getNewestProducts(),
     getFlashSaleProducts(),
   ])
 
@@ -90,7 +104,7 @@ export default async function HomePage() {
             </Button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {products.slice(0, 10).map((product) => (
+            {recommended.map((product) => (
               <ProductCard
                 key={product.id}
                 id={product.id}
@@ -116,7 +130,7 @@ export default async function HomePage() {
             <h2 className="text-xl font-heading font-bold">Produk Terbaru</h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {products.slice(10, 20).map((product) => (
+            {newest.map((product) => (
               <ProductCard
                 key={product.id}
                 id={product.id}
