@@ -70,7 +70,6 @@ export default function OrderDetailPage() {
       }
 
       const data = await res.json()
-      console.log("[PaymentPoll] response:", data)
 
       if (data.paymentStatus === "SUCCESS") {
         toast.success("Pembayaran berhasil dikonfirmasi!")
@@ -80,8 +79,6 @@ export default function OrderDetailPage() {
         toast.error("Pembayaran gagal")
         setPolling(false)
         fetchOrder()
-      } else {
-        console.log("[PaymentPoll] still pending, retrying...")
       }
     } catch (err) {
       console.error("[PaymentPoll] network error:", err)
@@ -102,7 +99,6 @@ export default function OrderDetailPage() {
       if (pollRef.current > 24) {
         clearInterval(interval)
         setPolling(false)
-        console.log("[PaymentPoll] polling stopped after 24 attempts")
         return
       }
       await checkPaymentStatus()

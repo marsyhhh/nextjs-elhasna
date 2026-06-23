@@ -148,7 +148,7 @@ export function ProductFormWithUpload({
 
           <div>
             <label className="text-sm font-medium text-gray-700">Kategori</label>
-            <Select value={formData.categoryId} onValueChange={handleCategoryChange}>
+            <Select value={formData.categoryId} onValueChange={(v) => v && handleCategoryChange(v)}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih kategori" />
               </SelectTrigger>

@@ -36,8 +36,6 @@ export async function POST(req: Request) {
     const encodedOrderId = encodeURIComponent(encodeURIComponent(order.midtransOrderId))
     const url = `${baseUrl}/${encodedOrderId}/status`
 
-    console.log("[MidtransStatus] checking:", url)
-
     const res = await fetch(url, {
       method: "GET",
       headers: {
@@ -48,10 +46,7 @@ export async function POST(req: Request) {
     })
 
     const data = await res.json()
-    console.log("[MidtransStatus] response:", JSON.stringify(data, null, 2))
-
     const { transaction_status, payment_type } = data
-    console.log("[MidtransStatus] transaction_status:", transaction_status, "| payment_type:", payment_type)
 
     let paymentStatus = order.paymentStatus
     let orderStatus = order.status

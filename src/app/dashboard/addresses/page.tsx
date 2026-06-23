@@ -49,7 +49,7 @@ export default function AddressesPage() {
   const [searchingArea, setSearchingArea] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
-  const searchTimeout = useRef<NodeJS.Timeout>()
+  const searchTimeout = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => { fetchAddresses() }, [])
 

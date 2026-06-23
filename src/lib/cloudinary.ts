@@ -12,7 +12,7 @@ export type UploadFolder = "products" | "banners" | "avatars" | "categories"
 interface UploadOptions {
   folder: UploadFolder
   publicId?: string
-  transformation?: cloudinary.TransformationOptions
+  transformation?: any
 }
 
 export async function uploadToCloudinary(
@@ -21,7 +21,7 @@ export async function uploadToCloudinary(
 ): Promise<{ secure_url: string; public_id: string; width: number; height: number; format: string }> {
   const { folder, publicId, transformation = {} } = options
 
-  const uploadPromise = new Promise<cloudinary.UploadApiResponse>((resolve, reject) => {
+  const uploadPromise = new Promise<any>((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: `elhasna-hijab/${folder}`,
@@ -87,7 +87,7 @@ export function getOptimizedUrl(
 export function getThumbnailUrl(publicId: string, size = 200): string {
   return cloudinary.url(publicId, {
     transformation: [
-      { width: size, height: size, height: size, crop: "fill", gravity: "auto" },
+      { width: size, height: size, crop: "fill", gravity: "auto" },
       { quality: 80, fetch_format: "auto" },
     ],
     secure: true,

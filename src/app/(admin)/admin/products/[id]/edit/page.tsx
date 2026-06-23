@@ -64,12 +64,12 @@ export default function EditProductPage() {
         if (product.variants?.length) {
           const types = [...new Set(product.variants.map((v: any) => v.type))]
           const opts1 = product.variants.filter((v: any) => v.type === types[0]).map((v: any) => v.name)
-          setVar1Label(types[0])
+          setVar1Label(types[0] as string)
           setVar1Options(opts1)
 
           if (types.length > 1) {
             const opts2 = product.variants.filter((v: any) => v.type === types[1]).map((v: any) => v.name)
-            setVar2Label(types[1])
+            setVar2Label(types[1] as string)
             setVar2Options(opts2)
           }
 

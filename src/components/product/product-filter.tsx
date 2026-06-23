@@ -71,7 +71,7 @@ export function ProductFilter() {
       <div className="flex gap-3 w-full sm:w-auto">
         <Select
           value={currentCategory}
-          onValueChange={(value) => updateParams("category", value === "all" ? "" : value)}
+          onValueChange={(value) => updateParams("category", value === "all" ? "" : value ?? "")}
         >
           <SelectTrigger className="w-full sm:w-44">
             <SelectValue placeholder="Semua Kategori" />
@@ -87,7 +87,7 @@ export function ProductFilter() {
         </Select>
         <Select
           value={currentSort}
-          onValueChange={(value) => updateParams("sort", value === "terbaru" ? "" : value)}
+          onValueChange={(value) => updateParams("sort", value === "terbaru" ? "" : value ?? "")}
         >
           <SelectTrigger className="w-full sm:w-36">
             <SelectValue placeholder="Terbaru" />

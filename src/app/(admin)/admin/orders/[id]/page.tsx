@@ -223,7 +223,7 @@ export default function AdminOrderDetailPage() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs text-slate-400">Status Pesanan</Label>
-                <Select value={status} onValueChange={setStatus}>
+                <Select value={status} onValueChange={(v) => v && setStatus(v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {statusOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}

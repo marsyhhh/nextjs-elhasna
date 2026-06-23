@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       clientKey: process.env.MIDTRANS_CLIENT_KEY,
     })
 
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
+    const baseUrl = process.env.NEXTAUTH_URL || ""
 
     // Merge items by productId to avoid duplicates
     const itemMap = new Map<string, { id: string; price: number; quantity: number; name: string }>()

@@ -57,11 +57,12 @@ export function AdminTopbar({ onMenuClick }: { onMenuClick?: () => void }) {
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem asChild>
-              <a href="/" className="flex items-center gap-2 cursor-pointer">
-                <Package className="h-4 w-4" />
-                Lihat Toko
-              </a>
+            <DropdownMenuItem
+              onClick={() => window.open("/", "_blank")}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <Package className="h-4 w-4" />
+              Lihat Toko
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

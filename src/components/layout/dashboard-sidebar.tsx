@@ -26,7 +26,7 @@ const customerLinks = [
   { href: "/dashboard/orders", label: "Pesanan Saya", icon: Package },
   { href: "/dashboard/profile", label: "Profil Saya", icon: User },
   { href: "/dashboard/addresses", label: "Alamat Saya", icon: MapPin },
-  { href: "/dashboard/wishlist", label: "Wishlist", icon: Heart },
+  // { href: "/dashboard/wishlist", label: "Wishlist", icon: Heart },
 ];
 
 const adminLinks = [
