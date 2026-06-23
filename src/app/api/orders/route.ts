@@ -75,6 +75,13 @@ export async function POST(req: Request) {
       },
     })
 
+    if (data.voucherCode) {
+      await prisma.voucher.update({
+        where: { code: data.voucherCode },
+        data: { usedCount: { increment: 1 } },
+      })
+    }
+
     await prisma.cartItem.deleteMany({
       where: { cart: { userId: session.user.id } },
     })

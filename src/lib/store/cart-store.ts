@@ -16,20 +16,31 @@ export interface CartItem {
   stock: number
 }
 
+export interface VoucherInfo {
+  code: string
+  discount: number
+  isShippingFree: boolean
+  voucherName: string
+}
+
 interface CartStore {
   items: CartItem[]
+  voucher: VoucherInfo | null
   addItem: (item: CartItem) => void
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
   clearCart: () => void
   getSubtotal: () => number
   getTotalItems: () => number
+  applyVoucher: (voucher: VoucherInfo) => void
+  removeVoucher: () => void
 }
 
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
+      voucher: null,
       addItem: (item) =>
         set((state) => {
           const existing = state.items.find(
@@ -56,7 +67,7 @@ export const useCartStore = create<CartStore>()(
             i.id === id ? { ...i, quantity: Math.max(1, quantity) } : i
           ),
         })),
-      clearCart: () => set({ items: [] }),
+      clearCart: () => set({ items: [], voucher: null }),
       getSubtotal: () => {
         return get().items.reduce(
           (total, item) =>
@@ -67,6 +78,8 @@ export const useCartStore = create<CartStore>()(
       getTotalItems: () => {
         return get().items.reduce((total, item) => total + item.quantity, 0)
       },
+      applyVoucher: (voucher) => set({ voucher }),
+      removeVoucher: () => set({ voucher: null }),
     }),
     { name: "elhasna-cart" }
   )

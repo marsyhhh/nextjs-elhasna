@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useCartStore } from "@/lib/store/cart-store"
+import VoucherInput from "@/components/checkout/voucher-input"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -36,7 +37,7 @@ const couriers = [
 export default function CheckoutPage() {
   const router = useRouter()
   const { data: session } = useSession()
-  const { items, getSubtotal, clearCart } = useCartStore()
+  const { items, getSubtotal, clearCart, voucher, removeVoucher } = useCartStore()
 
   const [addresses, setAddresses] = useState<any[]>([])
   const [selectedAddress, setSelectedAddress] = useState<string>("")
@@ -50,7 +51,9 @@ export default function CheckoutPage() {
   const [loadingShipping, setLoadingShipping] = useState(false)
 
   const subtotal = getSubtotal()
-  const total = subtotal + shippingCost
+  const discount = voucher?.discount ?? 0
+  const effectiveShipping = voucher?.isShippingFree ? 0 : shippingCost
+  const total = subtotal - discount + effectiveShipping
 
   useEffect(() => {
     if (!session) {
@@ -156,7 +159,31 @@ export default function CheckoutPage() {
       return
     }
 
+    let freshDiscount = discount
+    let freshShippingFree = voucher?.isShippingFree ?? false
+
+    if (voucher) {
+      const validateRes = await fetch("/api/vouchers/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: voucher.code, subtotal }),
+      })
+
+      const validateData = await validateRes.json()
+      if (!validateData.valid) {
+        removeVoucher()
+        toast.error(validateData.error)
+        return
+      }
+
+      freshDiscount = validateData.discount
+      freshShippingFree = validateData.isShippingFree
+    }
+
     setLoading(true)
+
+    const finalShipping = freshShippingFree ? 0 : shippingCost
+    const finalTotal = subtotal - freshDiscount + finalShipping
 
     try {
       const res = await fetch("/api/orders", {
@@ -165,9 +192,10 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           addressId: selectedAddress,
           subtotal,
-          shippingCost,
-          discount: 0,
-          total,
+          shippingCost: finalShipping,
+          discount: freshDiscount,
+          total: finalTotal,
+          voucherCode: voucher?.code || null,
           notes,
           courier,
           courierService: selectedShipping,
@@ -303,7 +331,8 @@ export default function CheckoutPage() {
           </Card>
         </div>
 
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-6">
+          <VoucherInput />
           <Card className="sticky top-24">
             <CardContent className="p-6 space-y-4">
               <h3 className="font-semibold">Ringkasan Pesanan</h3>
@@ -333,9 +362,21 @@ export default function CheckoutPage() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatPrice(subtotal)}</span>
                 </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Diskon {voucher?.code}</span>
+                    <span>-{formatPrice(discount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Ongkos Kirim</span>
-                  <span>{shippingCost > 0 ? formatPrice(shippingCost) : "-"}</span>
+                  <span>
+                    {voucher?.isShippingFree
+                      ? "Gratis"
+                      : shippingCost > 0
+                      ? formatPrice(shippingCost)
+                      : "-"}
+                  </span>
                 </div>
               </div>
 
