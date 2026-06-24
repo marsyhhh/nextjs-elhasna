@@ -12,6 +12,7 @@ import {
   Layers,
   BarChart3,
   ImageIcon,
+  Users,
   LogOut,
   X,
   Menu,
@@ -35,6 +36,17 @@ const navItems = [
       { href: "/admin/banners/promo", label: "Promo" },
     ],
   },
+  {
+    href: "/admin/users",
+    label: "User",
+    icon: Users,
+    superadminOnly: true,
+    dropdown: true,
+    children: [
+      { href: "/admin/users/customers", label: "Pelanggan" },
+      { href: "/admin/users/admins", label: "Admin" },
+    ],
+  },
   { href: "/admin/analytics", label: "Laporan", icon: BarChart3 },
 ];
 
@@ -51,7 +63,10 @@ export function AdminSidebar({
   const isAdmin = session?.user?.role === "ADMIN" || isSuperadmin;
   const isBannerActive =
     pathname === "/admin/banners" || pathname.startsWith("/admin/banners/");
+  const isUserActive =
+    pathname.startsWith("/admin/users/customers") || pathname.startsWith("/admin/users/admins");
   const [bannerOpen, setBannerOpen] = useState(isBannerActive);
+  const [userOpen, setUserOpen] = useState(isUserActive);
 
   useEffect(() => {
     onClose();
@@ -72,12 +87,16 @@ export function AdminSidebar({
     if (isBannerActive) setBannerOpen(true);
   }, [pathname]);
 
+  useEffect(() => {
+    if (isUserActive) setUserOpen(true);
+  }, [pathname]);
+
   if (!isAdmin) return null;
 
   const visibleItems = navItems.filter(
     (item) =>
       isSuperadmin ||
-      (item.href !== "/admin/analytics" && item.href !== "/admin/banners"),
+      ((item as any).href !== "/admin/analytics" && (item as any).href !== "/admin/banners" && (item as any).href !== "/admin/users"),
   );
 
   const sidebarContent = (
@@ -107,13 +126,18 @@ export function AdminSidebar({
           const Icon = item.icon;
 
           if (item.dropdown) {
+            const isUser = item.href === "/admin/users";
+            const isOpen = isUser ? userOpen : bannerOpen;
+            const setIsOpen = isUser ? setUserOpen : setBannerOpen;
+            const isActive = isUser ? isUserActive : isBannerActive;
+
             return (
               <div key={item.href} className="space-y-1">
                 <button
-                  onClick={() => setBannerOpen(!bannerOpen)}
+                  onClick={() => setIsOpen(!isOpen)}
                   className={cn(
                     "flex items-center justify-between w-full gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-                    isBannerActive
+                    isActive
                       ? "bg-primary/20 text-primary font-medium"
                       : "text-slate-300 hover:bg-slate-800 hover:text-white",
                   )}
@@ -125,11 +149,11 @@ export function AdminSidebar({
                   <ChevronDown
                     className={cn(
                       "h-4 w-4 transition-transform",
-                      bannerOpen && "rotate-180",
+                      isOpen && "rotate-180",
                     )}
                   />
                 </button>
-                {bannerOpen && (
+                {isOpen && (
                   <div className="ml-6 space-y-1 border-l border-slate-700 pl-3">
                     {item.children?.map((child) => {
                       const isChildActive = pathname === child.href;
