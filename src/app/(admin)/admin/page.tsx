@@ -19,8 +19,9 @@ export default function AdminDashboard() {
     Promise.all([
       fetch("/api/products").then((r) => r.json()),
       fetch("/api/orders").then((r) => r.json()),
+      fetch("/api/users?role=customer").then((r) => r.json()),
     ])
-      .then(([products, orders]) => {
+      .then(([products, orders, users]) => {
         const isPaid = (o: any) => o.paymentStatus === "SUCCESS" || o.status === "DELIVERED"
         const revenue = Array.isArray(orders)
           ? orders.filter(isPaid).reduce((s: number, o: any) => s + o.total, 0)
@@ -29,7 +30,7 @@ export default function AdminDashboard() {
           totalProducts: Array.isArray(products) ? products.length : 0,
           totalOrders: Array.isArray(orders) ? orders.length : 0,
           totalRevenue: revenue,
-          totalCustomers: 0,
+          totalCustomers: Array.isArray(users) ? users.length : 0,
         })
       })
       .catch(() => {})
@@ -40,7 +41,7 @@ export default function AdminDashboard() {
     { title: "Total Produk", value: stats.totalProducts, icon: ShoppingBag, color: "text-blue-600 bg-blue-100" },
     { title: "Total Pesanan", value: stats.totalOrders, icon: Package, color: "text-purple-600 bg-purple-100" },
     { title: "Pendapatan", value: formatPrice(stats.totalRevenue), icon: DollarSign, color: "text-green-600 bg-green-100" },
-    { title: "Pelanggan", value: stats.totalCustomers || "-", icon: Users, color: "text-amber-600 bg-amber-100" },
+    { title: "Pelanggan", value: stats.totalCustomers, icon: Users, color: "text-amber-600 bg-amber-100" },
   ]
 
   return (
