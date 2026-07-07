@@ -15,6 +15,7 @@ enum BannerType {
 enum Role {
   CUSTOMER
   ADMIN
+  PEMILIK
   SUPERADMIN
 }
 

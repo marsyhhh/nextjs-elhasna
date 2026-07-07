@@ -4,21 +4,40 @@ import { auth } from "@/lib/auth"
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || (session.user.role !== "SUPERADMIN" && session.user.role !== "PEMILIK")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   try {
     const { id } = await params
-    const data = await req.json()
 
-    if (session.user.id === id && data.isActive === false) {
-      return NextResponse.json({ error: "Tidak bisa menonaktifkan akun sendiri" }, { status: 400 })
+    if (session.user.id === id) {
+      return NextResponse.json({ error: "Tidak bisa mengubah akun sendiri" }, { status: 400 })
     }
 
+    const targetUser = await prisma.user.findUnique({ where: { id }, select: { role: true, isActive: true } })
+    if (!targetUser) {
+      return NextResponse.json({ error: "User tidak ditemukan" }, { status: 404 })
+    }
+
+    const data = await req.json()
+
     const updateData: any = {}
-    if (data.isActive !== undefined) updateData.isActive = data.isActive
-    if (data.role) updateData.role = data.role
+
+    if (session.user.role === "PEMILIK") {
+      if (targetUser.role === "CUSTOMER") {
+        if (data.isActive !== undefined) updateData.isActive = data.isActive
+        if (data.role) return NextResponse.json({ error: "Tidak bisa mengubah role pelanggan" }, { status: 403 })
+      } else if (targetUser.role === "ADMIN") {
+        if (data.isActive !== undefined) updateData.isActive = data.isActive
+        if (data.role) return NextResponse.json({ error: "Tidak bisa mengubah role admin" }, { status: 403 })
+      } else {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+    } else {
+      if (data.isActive !== undefined) updateData.isActive = data.isActive
+      if (data.role) updateData.role = data.role
+    }
 
     const user = await prisma.user.update({
       where: { id },
@@ -42,7 +61,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || (session.user.role !== "SUPERADMIN" && session.user.role !== "PEMILIK")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -51,6 +70,16 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     if (session.user.id === id) {
       return NextResponse.json({ error: "Tidak bisa menghapus akun sendiri" }, { status: 400 })
+    }
+
+    if (session.user.role === "PEMILIK") {
+      const targetUser = await prisma.user.findUnique({ where: { id }, select: { role: true } })
+      if (!targetUser) {
+        return NextResponse.json({ error: "User tidak ditemukan" }, { status: 404 })
+      }
+      if (targetUser.role !== "ADMIN") {
+        return NextResponse.json({ error: "Hanya bisa menghapus admin" }, { status: 403 })
+      }
     }
 
     await prisma.user.delete({ where: { id } })

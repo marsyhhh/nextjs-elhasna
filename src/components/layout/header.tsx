@@ -198,7 +198,8 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                   {(session.user.role === "ADMIN" ||
-                    session.user.role === "SUPERADMIN") && (
+                    session.user.role === "SUPERADMIN" ||
+                    session.user.role === "PEMILIK") && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem>

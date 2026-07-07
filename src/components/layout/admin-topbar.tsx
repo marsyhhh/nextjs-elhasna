@@ -52,7 +52,7 @@ export function AdminTopbar({ onMenuClick }: { onMenuClick?: () => void }) {
                 {session?.user?.name || "Admin"}
               </p>
               <p className="text-[10px] text-slate-400">
-                {session?.user?.role === "SUPERADMIN" ? "Superadmin" : "Admin"}
+                {session?.user?.role === "SUPERADMIN" ? "Superadmin" : session?.user?.role === "PEMILIK" ? "Pemilik" : "Admin"}
               </p>
             </div>
           </DropdownMenuTrigger>

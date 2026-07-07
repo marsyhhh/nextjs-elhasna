@@ -47,6 +47,19 @@ async function main() {
   })
   console.log("Customer:", customer.email)
 
+  const pemilik = await prisma.user.upsert({
+    where: { email: "pemilik@elhasna.com" },
+    update: {},
+    create: {
+      name: "Pemilik Toko",
+      email: "pemilik@elhasna.com",
+      password,
+      role: "PEMILIK",
+      phone: "081234567893",
+    },
+  })
+  console.log("Pemilik:", pemilik.email)
+
   const categories = [
     { name: "Hijab", slug: "hijab", description: "Koleksi hijab modern", order: 1 },
     { name: "Gamis", slug: "gamis", description: "Gamis syar'i premium", order: 2 },
@@ -69,6 +82,7 @@ async function main() {
   console.log("\n--- Akun Login ---")
   console.log("Superadmin: superadmin@elhasna.com / admin123")
   console.log("Admin:      admin@elhasna.com / admin123")
+  console.log("Pemilik:    pemilik@elhasna.com / admin123")
   console.log("Customer:   customer@elhasna.com / admin123")
 }
 

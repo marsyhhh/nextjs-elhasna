@@ -21,7 +21,6 @@ type FilterType = "date" | "week" | "month";
 
 interface ExportRow {
   tanggal: string;
-  reference: string;
   noPesanan: string;
   pelanggan: string;
   mataUang: string;
@@ -29,7 +28,6 @@ interface ExportRow {
   diskon: number;
   totalPenjualan: number;
   pembayaran: number;
-  saldo: number;
   lunas: boolean;
 }
 
@@ -288,15 +286,13 @@ export default function AnalyticsPage() {
       const isPaid = o.paymentStatus === "SUCCESS" || o.status === "DELIVERED";
       return {
         tanggal: formatTanggal(getDate(o)),
-        reference: o.invoiceNumber || "-",
-        noPesanan: "-",
+        noPesanan: o.invoiceNumber || "-",
         pelanggan: o.user?.name || o.user?.email || o.user?.phone || "-",
         mataUang: "IDR",
         subTotal: o.subtotal || 0,
         diskon: o.discount || 0,
         totalPenjualan: total,
         pembayaran: isPaid ? total : 0,
-        saldo: isPaid ? 0 : total,
         lunas: isPaid,
       };
     });
@@ -309,7 +305,6 @@ export default function AnalyticsPage() {
     diskon: exportRows.reduce((a, r) => a + r.diskon, 0),
     totalPenjualan: exportRows.reduce((a, r) => a + r.totalPenjualan, 0),
     pembayaran: exportRows.reduce((a, r) => a + r.pembayaran, 0),
-    saldo: exportRows.reduce((a, r) => a + r.saldo, 0),
   };
 
   function getDateRangeLabel(): string {
@@ -341,15 +336,13 @@ export default function AnalyticsPage() {
 
     const headers = [
       "Tanggal",
-      "Reference",
       "No. Pesanan",
       "Pelanggan",
       "Mata Uang",
       "Sub Total",
       "Diskon",
-      "Total Penjualan",
+      "Total",
       "Pembayaran",
-      "Saldo",
       "Lunas",
     ];
     wsData.push(headers);
@@ -357,7 +350,6 @@ export default function AnalyticsPage() {
     exportRows.forEach((r) => {
       wsData.push([
         r.tanggal,
-        r.reference,
         r.noPesanan,
         r.pelanggan,
         r.mataUang,
@@ -365,13 +357,11 @@ export default function AnalyticsPage() {
         r.diskon,
         r.totalPenjualan,
         r.pembayaran,
-        r.saldo,
-        r.lunas ? "✓" : "",
+        r.lunas ? "✓" : "✗",
       ]);
     });
 
     wsData.push([
-      "",
       "",
       "",
       "",
@@ -380,45 +370,43 @@ export default function AnalyticsPage() {
       totals.diskon,
       totals.totalPenjualan,
       totals.pembayaran,
-      totals.saldo,
       "",
     ]);
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
     ws["!merges"] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
-      { s: { r: 2, c: 0 }, e: { r: 2, c: 10 } },
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 8 } },
     ];
 
     const colWidths = [
       { wch: 14 },
-      { wch: 14 },
-      { wch: 14 },
+      { wch: 20 },
       { wch: 22 },
       { wch: 8 },
       { wch: 16 },
       { wch: 14 },
       { wch: 16 },
       { wch: 16 },
-      { wch: 14 },
       { wch: 8 },
     ];
     ws["!cols"] = colWidths;
 
-    const range = XLSX.utils.decode_range(ws["!ref"] || "A1:K1");
+    const range = XLSX.utils.decode_range(ws["!ref"] || "A1:I1");
     for (let R = range.s.r; R <= range.e.r; R++) {
       for (let C = range.s.c; C <= range.e.c; C++) {
         const addr = XLSX.utils.encode_cell({ r: R, c: C });
         const cell = ws[addr];
         if (!cell) continue;
-        if (R > 4 && [5, 6, 7, 8, 9].includes(C)) {
+        cell.s = { alignment: { horizontal: "center" } };
+        if (R > 4 && [4, 5, 6, 7].includes(C)) {
           cell.t = "n";
           cell.z = "#,##0.00";
         }
         if (R === range.e.r) {
-          cell.s = { font: { bold: true } };
+          cell.s = { font: { bold: true }, alignment: { horizontal: "center" } };
         }
       }
     }
@@ -461,22 +449,19 @@ export default function AnalyticsPage() {
     const tableHeaders = [
       [
         "Tanggal",
-        "Reference",
         "No. Pesanan",
         "Pelanggan",
         "Mata Uang",
         "Sub Total",
         "Diskon",
-        "Total Penjualan",
+        "Total",
         "Pembayaran",
-        "Saldo",
-        "",
+        "Lunas",
       ],
     ];
 
     const tableBody = exportRows.map((r) => [
       r.tanggal,
-      r.reference,
       r.noPesanan,
       r.pelanggan,
       r.mataUang,
@@ -484,13 +469,11 @@ export default function AnalyticsPage() {
       formatNumber(r.diskon),
       formatNumber(r.totalPenjualan),
       formatNumber(r.pembayaran),
-      formatNumber(r.saldo),
-      r.lunas ? "✓" : "",
+      r.lunas ? "✓" : "✗",
     ]);
 
     const tableFoot: string[][] = [
       [
-        "",
         "",
         "",
         "",
@@ -499,7 +482,6 @@ export default function AnalyticsPage() {
         formatNumber(totals.diskon),
         formatNumber(totals.totalPenjualan),
         formatNumber(totals.pembayaran),
-        formatNumber(totals.saldo),
         "",
       ],
     ];
@@ -515,6 +497,7 @@ export default function AnalyticsPage() {
         cellPadding: 1.5,
         lineColor: [180, 180, 180],
         lineWidth: 0.3,
+        halign: "center",
       },
       headStyles: {
         fillColor: [220, 220, 220],
@@ -528,19 +511,18 @@ export default function AnalyticsPage() {
         textColor: [30, 30, 30],
         fontStyle: "bold",
         fontSize: 7,
+        halign: "center",
       },
       columnStyles: {
-        0: { halign: "left", cellWidth: 22 },
-        1: { halign: "left", cellWidth: 20 },
-        2: { halign: "left", cellWidth: 18 },
-        3: { halign: "left", cellWidth: 32 },
-        4: { halign: "center", cellWidth: 14 },
-        5: { halign: "right", cellWidth: 22 },
-        6: { halign: "right", cellWidth: 18 },
-        7: { halign: "right", cellWidth: 22 },
-        8: { halign: "right", cellWidth: 22 },
-        9: { halign: "right", cellWidth: 18 },
-        10: { halign: "center", cellWidth: 8 },
+        0: { cellWidth: 22 },
+        1: { cellWidth: 24 },
+        2: { cellWidth: 32 },
+        3: { cellWidth: 14 },
+        4: { cellWidth: 22 },
+        5: { cellWidth: 18 },
+        6: { cellWidth: 22 },
+        7: { cellWidth: 22 },
+        8: { cellWidth: 10 },
       },
       didDrawPage: (data: any) => {
         doc.setFontSize(7);
@@ -797,7 +779,9 @@ export default function AnalyticsPage() {
                   <Input
                     type="date"
                     value={startDate}
-                    onChange={(e) => startTransition(() => setStartDate(e.target.value))}
+                    onChange={(e) =>
+                      startTransition(() => setStartDate(e.target.value))
+                    }
                     className="h-8 w-40 text-sm"
                   />
                 </div>
@@ -807,7 +791,9 @@ export default function AnalyticsPage() {
                   <Input
                     type="date"
                     value={endDate}
-                    onChange={(e) => startTransition(() => setEndDate(e.target.value))}
+                    onChange={(e) =>
+                      startTransition(() => setEndDate(e.target.value))
+                    }
                     className="h-8 w-40 text-sm"
                   />
                 </div>
@@ -820,7 +806,9 @@ export default function AnalyticsPage() {
                 <Input
                   type="week"
                   value={selectedWeek}
-                  onChange={(e) => startTransition(() => setSelectedWeek(e.target.value))}
+                  onChange={(e) =>
+                    startTransition(() => setSelectedWeek(e.target.value))
+                  }
                   className="h-8 w-44 text-sm"
                 />
               </div>
@@ -832,7 +820,9 @@ export default function AnalyticsPage() {
                 <Input
                   type="month"
                   value={selectedMonth}
-                  onChange={(e) => startTransition(() => setSelectedMonth(e.target.value))}
+                  onChange={(e) =>
+                    startTransition(() => setSelectedMonth(e.target.value))
+                  }
                   className="h-8 w-44 text-sm"
                 />
               </div>
@@ -873,58 +863,47 @@ export default function AnalyticsPage() {
         <CardContent className="p-0 overflow-auto max-h-96">
           {isPending ? (
             <div className="p-4 space-y-3">
-              {[...Array(6)].map((_, i) => (
-                <div
-                  key={i}
-                  className="flex gap-4 animate-pulse"
-                >
-                  <div className="h-4 bg-slate-200 rounded w-[12%]" />
-                  <div className="h-4 bg-slate-200 rounded w-[12%]" />
-                  <div className="h-4 bg-slate-200 rounded w-[10%]" />
-                  <div className="h-4 bg-slate-200 rounded w-[20%]" />
-                  <div className="h-4 bg-slate-200 rounded w-[6%]" />
-                  <div className="h-4 bg-slate-200 rounded w-[12%]" />
-                  <div className="h-4 bg-slate-200 rounded w-[10%]" />
-                  <div className="h-4 bg-slate-200 rounded w-[12%]" />
-                  <div className="h-4 bg-slate-200 rounded w-[12%]" />
-                  <div className="h-4 bg-slate-200 rounded w-[10%]" />
-                  <div className="h-4 bg-slate-200 rounded w-[5%]" />
-                </div>
-              ))}
-            </div>
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="flex gap-4 animate-pulse">
+                    <div className="h-4 bg-slate-200 rounded w-[12%]" />
+                    <div className="h-4 bg-slate-200 rounded w-[18%]" />
+                    <div className="h-4 bg-slate-200 rounded w-[20%]" />
+                    <div className="h-4 bg-slate-200 rounded w-[8%]" />
+                    <div className="h-4 bg-slate-200 rounded w-[12%]" />
+                    <div className="h-4 bg-slate-200 rounded w-[10%]" />
+                    <div className="h-4 bg-slate-200 rounded w-[12%]" />
+                    <div className="h-4 bg-slate-200 rounded w-[12%]" />
+                    <div className="h-4 bg-slate-200 rounded w-[8%]" />
+                  </div>
+                ))}
+              </div>
           ) : (
-            <table className="w-full text-xs border-collapse">
+              <table className="w-full text-xs border-collapse">
               <thead className="sticky top-0 bg-slate-100">
                 <tr>
-                  <th className="text-left p-2 border border-slate-200 font-semibold">
+                  <th className="text-center p-2 border border-slate-200 font-semibold">
                     Tanggal
                   </th>
-                  <th className="text-left p-2 border border-slate-200 font-semibold">
-                    Reference
-                  </th>
-                  <th className="text-left p-2 border border-slate-200 font-semibold">
+                  <th className="text-center p-2 border border-slate-200 font-semibold">
                     No. Pesanan
                   </th>
-                  <th className="text-left p-2 border border-slate-200 font-semibold">
+                  <th className="text-center p-2 border border-slate-200 font-semibold">
                     Pelanggan
                   </th>
                   <th className="text-center p-2 border border-slate-200 font-semibold">
                     Mata Uang
                   </th>
-                  <th className="text-right p-2 border border-slate-200 font-semibold">
+                  <th className="text-center p-2 border border-slate-200 font-semibold">
                     Sub Total
                   </th>
-                  <th className="text-right p-2 border border-slate-200 font-semibold">
+                  <th className="text-center p-2 border border-slate-200 font-semibold">
                     Diskon
                   </th>
-                  <th className="text-right p-2 border border-slate-200 font-semibold">
+                  <th className="text-center p-2 border border-slate-200 font-semibold">
                     Total
                   </th>
-                  <th className="text-right p-2 border border-slate-200 font-semibold">
+                  <th className="text-center p-2 border border-slate-200 font-semibold">
                     Pembayaran
-                  </th>
-                  <th className="text-right p-2 border border-slate-200 font-semibold">
-                    Saldo
                   </th>
                   <th className="text-center p-2 border border-slate-200 font-semibold">
                     Lunas
@@ -932,76 +911,75 @@ export default function AnalyticsPage() {
                 </tr>
               </thead>
               <tbody>
-                {exportRows.length === 0 && (
-                  <tr>
-                    <td colSpan={11} className="text-center p-4 text-slate-400">
-                      Tidak ada data untuk rentang yang dipilih
-                    </td>
-                  </tr>
-                )}
-                {exportRows.map((r, i) => (
-                  <tr
-                    key={i}
-                    className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}
-                  >
-                    <td className="p-2 border border-slate-200">{r.tanggal}</td>
-                    <td className="p-2 border border-slate-200">{r.reference}</td>
-                    <td className="p-2 border border-slate-200">{r.noPesanan}</td>
-                    <td className="p-2 border border-slate-200 truncate max-w-[140px]">
-                      {r.pelanggan}
-                    </td>
-                    <td className="p-2 border border-slate-200 text-center">
-                      {r.mataUang}
-                    </td>
-                    <td className="p-2 border border-slate-200 text-right">
-                      {formatNumber(r.subTotal)}
-                    </td>
-                    <td className="p-2 border border-slate-200 text-right">
-                      {formatNumber(r.diskon)}
-                    </td>
-                    <td className="p-2 border border-slate-200 text-right">
-                      {formatNumber(r.totalPenjualan)}
-                    </td>
-                    <td className="p-2 border border-slate-200 text-right">
-                      {formatNumber(r.pembayaran)}
-                    </td>
-                    <td className="p-2 border border-slate-200 text-right">
-                      {formatNumber(r.saldo)}
-                    </td>
-                    <td className="p-2 border border-slate-200 text-center text-green-600">
-                      {r.lunas ? "✓" : ""}
-                    </td>
-                  </tr>
-                ))}
+                  {exportRows.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="text-center p-4 text-slate-400">
+                        Tidak ada data untuk rentang yang dipilih
+                      </td>
+                    </tr>
+                  )}
+                  {exportRows.map((r, i) => (
+                    <tr
+                      key={i}
+                      className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}
+                    >
+                      <td className="p-2 border border-slate-200 text-center">
+                        {r.tanggal}
+                      </td>
+                      <td className="p-2 border border-slate-200 text-center">
+                        {r.noPesanan}
+                      </td>
+                      <td className="p-2 border border-slate-200 text-center truncate max-w-[140px]">
+                        {r.pelanggan}
+                      </td>
+                      <td className="p-2 border border-slate-200 text-center">
+                        {r.mataUang}
+                      </td>
+                      <td className="p-2 border border-slate-200 text-center">
+                        {formatNumber(r.subTotal)}
+                      </td>
+                      <td className="p-2 border border-slate-200 text-center">
+                        {formatNumber(r.diskon)}
+                      </td>
+                      <td className="p-2 border border-slate-200 text-center">
+                        {formatNumber(r.totalPenjualan)}
+                      </td>
+                      <td className="p-2 border border-slate-200 text-center">
+                        {formatNumber(r.pembayaran)}
+                      </td>
+                      <td className="p-2 border border-slate-200 text-center">
+                        <span className={r.lunas ? "text-green-600 font-bold" : "text-red-500 font-bold"}>
+                          {r.lunas ? "✓" : "✗"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
-              {exportRows.length > 0 && (
-                <tfoot>
-                  <tr className="bg-slate-200 font-semibold">
-                    <td className="p-2 border border-slate-300" colSpan={4}>
-                      Total
-                    </td>
-                    <td className="p-2 border border-slate-300 text-center">
-                      IDR
-                    </td>
-                    <td className="p-2 border border-slate-300 text-right">
-                      {formatNumber(totals.subTotal)}
-                    </td>
-                    <td className="p-2 border border-slate-300 text-right">
-                      {formatNumber(totals.diskon)}
-                    </td>
-                    <td className="p-2 border border-slate-300 text-right">
-                      {formatNumber(totals.totalPenjualan)}
-                    </td>
-                    <td className="p-2 border border-slate-300 text-right">
-                      {formatNumber(totals.pembayaran)}
-                    </td>
-                    <td className="p-2 border border-slate-300 text-right">
-                      {formatNumber(totals.saldo)}
-                    </td>
-                    <td className="p-2 border border-slate-300"></td>
-                  </tr>
-                </tfoot>
-              )}
+                {exportRows.length > 0 && (
+                  <tfoot>
+                    <tr className="bg-slate-200 font-semibold">
+                      <td className="p-2 border border-slate-300 text-center" colSpan={3}>
+                        Total
+                      </td>
+                      <td className="p-2 border border-slate-300 text-center">
+                        IDR
+                      </td>
+                      <td className="p-2 border border-slate-300 text-center">
+                        {formatNumber(totals.subTotal)}
+                      </td>
+                      <td className="p-2 border border-slate-300 text-center">
+                        {formatNumber(totals.diskon)}
+                      </td>
+                      <td className="p-2 border border-slate-300 text-center">
+                        {formatNumber(totals.totalPenjualan)}
+                      </td>
+                      <td className="p-2 border border-slate-300 text-center">
+                        {formatNumber(totals.pembayaran)}
+                      </td>
+                      <td className="p-2 border border-slate-300"></td>
+                    </tr>
+                  </tfoot>
+                )}
             </table>
           )}
         </CardContent>

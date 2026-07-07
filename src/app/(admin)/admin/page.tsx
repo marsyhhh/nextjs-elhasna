@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice } from "@/lib/utils"
 import { ShoppingBag, Package, Users, DollarSign } from "lucide-react"
 
 export default function AdminDashboard() {
+  const { data: session } = useSession()
+  const isPemilik = session?.user?.role === "PEMILIK"
   const [stats, setStats] = useState({
     totalProducts: 0,
     totalOrders: 0,
@@ -70,34 +73,36 @@ export default function AdminDashboard() {
         })}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Link href="/admin/products">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer border-primary/20">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-primary/10">
-                <ShoppingBag className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="font-semibold text-slate-900">Kelola Produk</p>
-                <p className="text-sm text-slate-500">Tambah, edit, hapus produk fashion</p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/admin/orders">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer border-primary/20">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-primary/10">
-                <Package className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="font-semibold text-slate-900">Kelola Pesanan</p>
-                <p className="text-sm text-slate-500">Update status & input resi pengiriman</p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
+      {!isPemilik && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Link href="/admin/products">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-primary/20">
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-primary/10">
+                  <ShoppingBag className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900">Kelola Produk</p>
+                  <p className="text-sm text-slate-500">Tambah, edit, hapus produk fashion</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/admin/orders">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-primary/20">
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-primary/10">
+                  <Package className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900">Kelola Pesanan</p>
+                  <p className="text-sm text-slate-500">Update status & input resi pengiriman</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      )}
     </div>
   )
 }

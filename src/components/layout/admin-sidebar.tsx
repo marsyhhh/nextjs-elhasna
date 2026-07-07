@@ -41,10 +41,12 @@ const navItems = [
     label: "User",
     icon: Users,
     superadminOnly: true,
+    pemilikOnly: true,
     dropdown: true,
     children: [
       { href: "/admin/users/customers", label: "Pelanggan" },
       { href: "/admin/users/admins", label: "Admin" },
+      { href: "/admin/users/owners", label: "Pemilik", superadminOnly: true },
     ],
   },
   { href: "/admin/analytics", label: "Laporan", icon: BarChart3 },
@@ -60,11 +62,12 @@ export function AdminSidebar({
   const pathname = usePathname();
   const { data: session } = useSession();
   const isSuperadmin = session?.user?.role === "SUPERADMIN";
-  const isAdmin = session?.user?.role === "ADMIN" || isSuperadmin;
+  const isPemilik = session?.user?.role === "PEMILIK";
+  const isAdmin = session?.user?.role === "ADMIN" || isSuperadmin || isPemilik;
   const isBannerActive =
     pathname === "/admin/banners" || pathname.startsWith("/admin/banners/");
   const isUserActive =
-    pathname.startsWith("/admin/users/customers") || pathname.startsWith("/admin/users/admins");
+    pathname.startsWith("/admin/users/customers") || pathname.startsWith("/admin/users/admins") || pathname.startsWith("/admin/users/owners");
   const [bannerOpen, setBannerOpen] = useState(isBannerActive);
   const [userOpen, setUserOpen] = useState(isUserActive);
 
@@ -93,11 +96,13 @@ export function AdminSidebar({
 
   if (!isAdmin) return null;
 
-  const visibleItems = navItems.filter(
-    (item) =>
-      isSuperadmin ||
-      ((item as any).href !== "/admin/analytics" && (item as any).href !== "/admin/banners" && (item as any).href !== "/admin/users"),
-  );
+  const visibleItems = navItems.filter((item) => {
+    if (isSuperadmin) return true
+    if (isPemilik) {
+      return (item as any).href === "/admin" || (item as any).href === "/admin/users" || (item as any).href === "/admin/analytics"
+    }
+    return (item as any).href !== "/admin/analytics" && (item as any).href !== "/admin/users"
+  })
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
@@ -155,23 +160,25 @@ export function AdminSidebar({
                 </button>
                 {isOpen && (
                   <div className="ml-6 space-y-1 border-l border-slate-700 pl-3">
-                    {item.children?.map((child) => {
-                      const isChildActive = pathname === child.href;
-                      return (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          className={cn(
-                            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
-                            isChildActive
-                              ? "bg-primary/20 text-primary font-medium"
-                              : "text-slate-400 hover:bg-slate-800 hover:text-white",
-                          )}
-                        >
-                          {child.label}
-                        </Link>
-                      );
-                    })}
+                    {item.children
+                      ?.filter((child) => !isPemilik || !(child as any).superadminOnly)
+                      .map((child) => {
+                        const isChildActive = pathname === child.href;
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                              isChildActive
+                                ? "bg-primary/20 text-primary font-medium"
+                                : "text-slate-400 hover:bg-slate-800 hover:text-white",
+                            )}
+                          >
+                            {child.label}
+                          </Link>
+                        );
+                      })}
                   </div>
                 )}
               </div>

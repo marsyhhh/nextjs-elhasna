@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs"
 
 export async function GET(req: Request) {
   const session = await auth()
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || (session.user.role !== "SUPERADMIN" && session.user.role !== "PEMILIK")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -14,8 +14,16 @@ export async function GET(req: Request) {
     const role = searchParams.get("role")
 
     const where: any = {}
-    if (role === "customer") where.role = "CUSTOMER"
-    else if (role === "admin") where.role = "ADMIN"
+
+    if (session.user.role === "PEMILIK") {
+      if (role === "customer") where.role = "CUSTOMER"
+      else if (role === "admin") where.role = "ADMIN"
+      else return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    } else {
+      if (role === "customer") where.role = "CUSTOMER"
+      else if (role === "admin") where.role = "ADMIN"
+      else if (role === "owner") where.role = "PEMILIK"
+    }
 
     const users = await prisma.user.findMany({
       where,
@@ -41,7 +49,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await auth()
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || (session.user.role !== "SUPERADMIN" && session.user.role !== "PEMILIK")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -55,12 +63,17 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(data.password, 12)
 
+    const role = session.user.role === "PEMILIK" ? "ADMIN" : (data.role || "ADMIN")
+    if (role !== "ADMIN" && role !== "PEMILIK") {
+      return NextResponse.json({ error: "Role tidak valid" }, { status: 400 })
+    }
+
     const user = await prisma.user.create({
       data: {
         name: data.name,
         email: data.email,
         password: hashedPassword,
-        role: "ADMIN",
+        role,
         isActive: true,
       },
       select: {
