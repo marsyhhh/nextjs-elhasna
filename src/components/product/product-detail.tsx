@@ -266,7 +266,22 @@ export function ProductDetail({ product }: ProductDetailProps) {
               >
                 <Minus className="h-4 w-4" />
               </button>
-              <span className="w-14 text-center font-medium">{quantity}</span>
+              <input
+                type="number"
+                min={1}
+                max={Math.max(getAvailableStock(), 1)}
+                value={quantity}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value)
+                  if (!isNaN(val) && val > 0) {
+                    setQuantity(val)
+                  }
+                }}
+                onBlur={() => {
+                  setQuantity(Math.max(1, Math.min(getAvailableStock(), quantity || 1)))
+                }}
+                className="w-14 text-center font-medium bg-transparent border-none outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
               <button
                 onClick={() =>
                   setQuantity(
