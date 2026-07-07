@@ -20,6 +20,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Order tidak ditemukan" }, { status: 404 })
     }
 
+    if (order.status !== "PENDING_PAYMENT") {
+      return NextResponse.json({ error: "Pesanan sudah tidak dalam status pembayaran" }, { status: 400 })
+    }
+
     const Midtrans = require("midtrans-client")
     const snap = new Midtrans.Snap({
       isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
@@ -84,8 +88,40 @@ export async function POST(req: Request) {
       token: transaction.token,
       redirectUrl: transaction.redirect_url,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Midtrans error:", error)
+
+    if (error.httpStatusCode === 406 || error.message?.includes?.("order_id")) {
+      try {
+        const { orderId } = await req.json()
+        const order = await prisma.order.findUnique({ where: { id: orderId } })
+        if (!order) {
+          return NextResponse.json({ error: "Gagal memproses pembayaran" }, { status: 500 })
+        }
+
+        const Midtrans = require("midtrans-client")
+        const snap = new Midtrans.Snap({
+          isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
+          serverKey: process.env.MIDTRANS_SERVER_KEY,
+          clientKey: process.env.MIDTRANS_CLIENT_KEY,
+        })
+
+        const status = await snap.transaction.status(order.invoiceNumber)
+
+        if (status.transaction_status === "pending") {
+          return NextResponse.json({ error: "Transaksi sebelumnya masih aktif. Silakan cek status pembayaran." }, { status: 409 })
+        }
+
+        if (status.transaction_status === "settlement" || status.transaction_status === "capture") {
+          return NextResponse.json({ error: "Pembayaran sudah berhasil. Silakan refresh halaman." }, { status: 409 })
+        }
+
+        return NextResponse.json({ error: "Gagal membuat pembayaran baru. Silakan pesan ulang." }, { status: 500 })
+      } catch {
+        return NextResponse.json({ error: "Gagal membuat pembayaran baru. Silakan pesan ulang." }, { status: 500 })
+      }
+    }
+
     return NextResponse.json({ error: "Gagal memproses pembayaran" }, { status: 500 })
   }
 }

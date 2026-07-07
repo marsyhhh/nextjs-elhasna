@@ -210,9 +210,18 @@ export default function CheckoutPage() {
         }),
       })
 
-      if (!res.ok) throw new Error()
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Gagal memproses pesanan")
+      }
 
       const order = await res.json()
+
+      const oldOrderId = sessionStorage.getItem("cancelOrderId")
+      if (oldOrderId) {
+        fetch(`/api/orders/${oldOrderId}/cancel`, { method: "PATCH" }).catch(() => {})
+        sessionStorage.removeItem("cancelOrderId")
+      }
 
       const midtransRes = await fetch("/api/midtrans/snap-token", {
         method: "POST",
@@ -222,12 +231,14 @@ export default function CheckoutPage() {
 
       const midtransData = await midtransRes.json()
 
-      if (midtransData.token) {
+      if (midtransData.redirectUrl) {
         clearCart()
         window.location.assign(midtransData.redirectUrl)
+      } else if (midtransData.error) {
+        throw new Error(midtransData.error)
       }
-    } catch {
-      toast.error("Gagal memproses pesanan")
+    } catch (err: any) {
+      toast.error(err.message || "Gagal memproses pesanan")
     }
     setLoading(false)
   }

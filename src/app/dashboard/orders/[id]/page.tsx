@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { useParams } from "next/navigation"
+import { useState, useEffect, useRef, useMemo } from "react"
+import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
@@ -22,7 +22,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { ArrowLeft, Package, Truck, ExternalLink, XCircle, RefreshCw, Loader2 } from "lucide-react"
+import { ArrowLeft, Package, Truck, ExternalLink, XCircle, RefreshCw, Loader2, Clock, ShoppingBag } from "lucide-react"
+import { useCartStore } from "@/lib/store/cart-store"
 
 const statusLabels: Record<string, string> = {
   PENDING_PAYMENT: "Belum Dibayar", PROCESSING: "Diproses", SHIPPED: "Dikirim", DELIVERED: "Selesai", CANCELLED: "Dibatalkan",
@@ -35,6 +36,8 @@ const statusColors: Record<string, string> = {
 
 export default function OrderDetailPage() {
   const params = useParams()
+  const router = useRouter()
+  const { setItems } = useCartStore()
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [cancelOpen, setCancelOpen] = useState(false)
@@ -110,6 +113,67 @@ export default function OrderDetailPage() {
   }, [order?.status])
 
   const canCancel = order && (order.status === "PENDING_PAYMENT" || order.status === "PROCESSING")
+
+  const paymentDeadline = useMemo(() => {
+    if (!order) return null
+    return new Date(new Date(order.createdAt).getTime() + 24 * 60 * 60 * 1000)
+  }, [order])
+
+  const isPaymentExpired = paymentDeadline && new Date() > paymentDeadline
+
+  async function handlePayNow() {
+    try {
+      const res = await fetch("/api/midtrans/snap-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: params.id }),
+      })
+
+      const data = await res.json()
+
+      if (data.redirectUrl) {
+        window.location.assign(data.redirectUrl)
+      } else if (data.error) {
+        toast.error(data.error)
+      }
+    } catch {
+      toast.error("Gagal memproses pembayaran")
+    }
+  }
+
+  async function handleReorder() {
+    try {
+      const reorderItems = order.items.map((item: any, index: number) => {
+          let itemStock = item.product.stock || 0
+          if (item.combinationId) {
+            const combo = item.product.combinations?.find((c: any) => c.id === item.combinationId)
+            if (combo) itemStock = combo.stock
+          }
+          return {
+            id: `reorder-${index}-${Date.now()}`,
+            productId: item.productId,
+            name: item.product.name,
+            slug: item.product.slug,
+            price: item.price,
+            discountPrice: item.product.discountPrice || null,
+            image: item.product.images?.[0] || "",
+            variantId: item.variantId,
+            variantName: item.variant?.name || null,
+            combinationId: item.combinationId,
+            quantity: Math.min(item.quantity, itemStock || 0),
+            weight: item.product.weight || 0,
+            stock: itemStock || 0,
+          }
+        })
+
+      setItems(reorderItems)
+      sessionStorage.setItem("cancelOrderId", order.id)
+      toast.success("Pesanan siap dipesan ulang")
+      router.push("/cart")
+    } catch {
+      toast.error("Gagal memproses pesanan ulang")
+    }
+  }
 
   async function handleCancel() {
     setCancelling(true)
@@ -228,16 +292,42 @@ export default function OrderDetailPage() {
           </div>
           {order.status === "PENDING_PAYMENT" && (
             <>
-              {polling && (
-                <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-3">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Memeriksa pembayaran secara otomatis...
-                </p>
+              {paymentDeadline && (
+                <div className={`flex items-center gap-1.5 text-xs mt-3 ${isPaymentExpired ? "text-red-600" : "text-muted-foreground"}`}>
+                  <Clock className="h-3 w-3" />
+                  {isPaymentExpired ? (
+                    <span>Pembayaran telah kadaluarsa</span>
+                  ) : (
+                    <span>Batas pembayaran: {paymentDeadline.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} WIB</span>
+                  )}
+                </div>
               )}
-              <Button onClick={checkPaymentStatus} disabled={checkingPayment} variant="outline" size="sm" className="w-full gap-2 mt-2">
-                {checkingPayment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                {checkingPayment ? "Mengecek..." : "Cek Status Pembayaran"}
-              </Button>
+
+              {!isPaymentExpired && (
+                <>
+                  {polling && (
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Memeriksa pembayaran secara otomatis...
+                    </p>
+                  )}
+                  <div className="flex gap-2 mt-2">
+                    <Button onClick={handlePayNow} variant="default" size="sm" className="flex-1 gap-2">
+                      <ShoppingBag className="h-3.5 w-3.5" /> Bayar Sekarang
+                    </Button>
+                    <Button onClick={checkPaymentStatus} disabled={checkingPayment} variant="outline" size="sm" className="flex-1 gap-2">
+                      {checkingPayment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                      {checkingPayment ? "Mengecek..." : "Cek Status"}
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {isPaymentExpired && (
+                <Button onClick={handleReorder} variant="default" size="sm" className="w-full gap-2 mt-3">
+                  <ShoppingBag className="h-3.5 w-3.5" /> Pesan Ulang
+                </Button>
+              )}
             </>
           )}
         </CardContent>

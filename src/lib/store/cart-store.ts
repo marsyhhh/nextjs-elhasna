@@ -30,6 +30,7 @@ interface CartStore {
   addItem: (item: CartItem) => void
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
+  setItems: (items: CartItem[]) => void
   clearCart: () => void
   getSubtotal: () => number
   getTotalItems: () => number
@@ -68,6 +69,7 @@ export const useCartStore = create<CartStore>()(
             i.id === id ? { ...i, quantity: Math.max(1, Math.min(i.stock, quantity || 1)) } : i
           ),
         })),
+      setItems: (items) => set({ items }),
       clearCart: () => set({ items: [], voucher: null }),
       getSubtotal: () => {
         return get().items.reduce(

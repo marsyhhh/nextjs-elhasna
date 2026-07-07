@@ -1,15 +1,18 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useCartStore } from "@/lib/store/cart-store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Trash2, ShoppingBag, ArrowLeft, Minus, Plus } from "lucide-react"
+import { Trash2, ShoppingBag, ArrowLeft, Minus, Plus, AlertTriangle } from "lucide-react"
 import { formatPrice } from "@/lib/utils"
 import Image from "next/image"
+import { toast } from "sonner"
 
 export default function CartPage() {
+  const router = useRouter()
   const { items, removeItem, updateQuantity, getSubtotal } = useCartStore()
 
   const subtotal = getSubtotal()
@@ -57,6 +60,9 @@ export default function CartPage() {
                 )}
                 <p className="font-semibold text-sm mt-1">
                   {formatPrice(item.discountPrice || item.price)}
+                </p>
+                <p className={`text-xs mt-0.5 ${item.quantity > item.stock ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
+                  {item.stock > 0 ? `Stok: ${item.stock}` : "Stok habis"}
                 </p>
 
                 <div className="flex items-center gap-3 mt-3">
@@ -133,8 +139,19 @@ export default function CartPage() {
               <span>{formatPrice(subtotal)}</span>
             </div>
 
-            <Button className="w-full rounded-full" size="lg" asChild>
-              <Link href="/checkout">Checkout</Link>
+            <Button
+              className="w-full rounded-full"
+              size="lg"
+              onClick={() => {
+                const overStock = items.filter((i) => i.quantity > i.stock)
+                if (overStock.length > 0) {
+                  toast.error("Ada produk yang melebihi stok tersedia. Sesuaikan jumlahnya.")
+                  return
+                }
+                router.push("/checkout")
+              }}
+            >
+              Checkout
             </Button>
 
             <Button variant="ghost" className="w-full gap-2" asChild>
