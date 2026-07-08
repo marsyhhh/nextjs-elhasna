@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       data: updateData,
     })
 
-    // Decrement stock & increment soldCount on successful payment
+    // Increment soldCount on successful payment (stock already held at order creation)
     if (transaction_status === "capture" || transaction_status === "settlement") {
       const orderItems = await prisma.orderItem.findMany({
         where: { orderId: order.id },
@@ -59,16 +59,27 @@ export async function POST(req: Request) {
       for (const item of orderItems) {
         await prisma.product.update({
           where: { id: item.productId },
-          data: {
-            stock: { decrement: item.quantity },
-            soldCount: { increment: item.quantity },
-          },
+          data: { soldCount: { increment: item.quantity } },
+        })
+      }
+    }
+
+    // Restore stock on failed/expired payment
+    if (transaction_status === "deny" || transaction_status === "cancel" || transaction_status === "expire") {
+      const orderItems = await prisma.orderItem.findMany({
+        where: { orderId: order.id },
+      })
+
+      for (const item of orderItems) {
+        await prisma.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } },
         })
 
         if (item.combinationId) {
           await prisma.productVariantCombination.update({
             where: { id: item.combinationId },
-            data: { stock: { decrement: item.quantity } },
+            data: { stock: { increment: item.quantity } },
           })
         }
       }

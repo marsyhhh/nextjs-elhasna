@@ -34,6 +34,29 @@ const statusColors: Record<string, string> = {
   SHIPPED: "bg-purple-100 text-purple-800", DELIVERED: "bg-green-100 text-green-800", CANCELLED: "bg-red-100 text-red-800",
 }
 
+const biteshipStatusLabels: Record<string, string> = {
+  confirmed: "Dikonfirmasi",
+  allocating: "Mengalokasikan",
+  allocated: "Ter alokasi",
+  picking: "Mengambil",
+  pickingUp: "Menjemput",
+  picked: "Terambil",
+  packed: "Dikemas",
+  dropping: "Diantar Kurir",
+  droppingOff: "Drop Off",
+  dropped: "Sudah Drop",
+  shipping: "Dikirim",
+  inTransit: "Dalam Pengiriman",
+  delivered: "Terkirim",
+  cancelled: "Dibatalkan",
+  rejected: "Ditolak",
+  courierNotFound: "Kurir Tidak Ditemukan",
+  returnInTransit: "Retur Dalam Perjalanan",
+  returned: "Diretur",
+  disposed: "Dibuang",
+  onHold: "Ditahan",
+}
+
 export default function OrderDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -266,7 +289,7 @@ export default function OrderDetailPage() {
               <span className="text-muted-foreground">Kurir</span><span>{order.courier}</span>
               <span className="text-muted-foreground">Layanan</span><span>{order.courierService}</span>
               {order.trackingNumber && <><span className="text-muted-foreground">No. Resi</span><span className="font-medium">{order.trackingNumber}</span></>}
-              {order.biteshipStatus && <><span className="text-muted-foreground">Status Kirim</span><span>{order.biteshipStatus}</span></>}
+              {order.biteshipStatus && <><span className="text-muted-foreground">Status Kirim</span><span>{biteshipStatusLabels[order.biteshipStatus] || order.biteshipStatus}</span></>}
             </div>
             {order.biteshipTrackingUrl && (
               <Button variant="outline" size="sm" className="w-full gap-2" asChild>

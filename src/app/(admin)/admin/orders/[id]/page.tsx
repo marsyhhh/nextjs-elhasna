@@ -1,36 +1,60 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatPrice } from "@/lib/utils"
 import { generateShippingLabel } from "@/lib/shipping-label"
 import { toast } from "sonner"
-import { ArrowLeft, Package, Truck, Printer, ExternalLink, Loader2 } from "lucide-react"
+import { ArrowLeft, Package, Printer, ExternalLink, Loader2 } from "lucide-react"
 
-const statusOptions = [
-  { value: "PENDING_PAYMENT", label: "Belum Dibayar" },
-  { value: "PROCESSING", label: "Diproses" },
-  { value: "SHIPPED", label: "Dikirim" },
-  { value: "DELIVERED", label: "Selesai" },
-  { value: "CANCELLED", label: "Dibatalkan" },
-]
+const biteshipStatusLabels: Record<string, string> = {
+  confirmed: "Dikonfirmasi",
+  allocating: "Mengalokasikan",
+  allocated: "Ter alokasi",
+  picking: "Mengambil",
+  pickingUp: "Menjemput",
+  picked: "Terambil",
+  packed: "Dikemas",
+  dropping: "Diantar Kurir",
+  droppingOff: "Drop Off",
+  dropped: "Sudah Drop",
+  shipping: "Dikirim",
+  inTransit: "Dalam Pengiriman",
+  delivered: "Terkirim",
+  cancelled: "Dibatalkan",
+  rejected: "Ditolak",
+  courierNotFound: "Kurir Tidak Ditemukan",
+  returnInTransit: "Retur Dalam Perjalanan",
+  returned: "Diretur",
+  disposed: "Dibuang",
+  onHold: "Ditahan",
+}
+
+const statusColors: Record<string, string> = {
+  PENDING_PAYMENT: "bg-yellow-100 text-yellow-800",
+  PROCESSING: "bg-blue-100 text-blue-800",
+  SHIPPED: "bg-purple-100 text-purple-800",
+  DELIVERED: "bg-green-100 text-green-800",
+  CANCELLED: "bg-red-100 text-red-800",
+}
+
+const statusLabels: Record<string, string> = {
+  PENDING_PAYMENT: "Belum Dibayar",
+  PROCESSING: "Diproses",
+  SHIPPED: "Dikirim",
+  DELIVERED: "Selesai",
+  CANCELLED: "Dibatalkan",
+}
 
 export default function AdminOrderDetailPage() {
   const params = useParams()
-  const router = useRouter()
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [status, setStatus] = useState("")
-  const [trackingNumber, setTrackingNumber] = useState("")
-  const [saving, setSaving] = useState(false)
   const [creatingShipment, setCreatingShipment] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -42,8 +66,6 @@ export default function AdminOrderDetailPage() {
       if (!res.ok) throw new Error("Failed to fetch")
       const data = await res.json()
       setOrder(data)
-      setStatus(data.status)
-      setTrackingNumber(data.trackingNumber || "")
     } catch { toast.error("Gagal memuat pesanan") }
     setLoading(false)
   }
@@ -71,27 +93,12 @@ export default function AdminOrderDetailPage() {
       } else if (data.order?.status === "SHIPPED") {
         toast.success("Status: Dikirim")
       } else {
-        toast.info(`Status: ${data.order?.biteshipStatus || "diperbarui"}`)
+        toast.info(`Status: ${biteshipStatusLabels[data.order?.biteshipStatus] || data.order?.biteshipStatus || "diperbarui"}`)
       }
     } catch (e: unknown) {
       toast.error((e instanceof Error ? e.message : "") || "Gagal refresh status")
     }
     setRefreshing(false)
-  }
-
-  async function handleUpdate() {
-    setSaving(true)
-    try {
-      const res = await fetch(`/api/orders/${params.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, trackingNumber }),
-      })
-      if (!res.ok) throw new Error()
-      toast.success("Pesanan berhasil diupdate")
-      router.refresh()
-    } catch { toast.error("Gagal mengupdate pesanan") }
-    setSaving(false)
   }
 
   async function handleCreateShipment() {
@@ -144,7 +151,6 @@ export default function AdminOrderDetailPage() {
           biteshipStatus: data.status || "confirmed",
           biteshipTrackingUrl: trackingUrl,
           trackingNumber: waybillId,
-          status: "SHIPPED",
         }),
       })
 
@@ -218,26 +224,18 @@ export default function AdminOrderDetailPage() {
 
         <div className="space-y-6">
           <Card><CardContent className="p-6 space-y-4">
-            <h3 className="font-semibold text-slate-900">Update Status</h3>
+            <h3 className="font-semibold text-slate-900">Status Pesanan</h3>
             <Separator />
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs text-slate-400">Status Pesanan</Label>
-                <Select value={status} onValueChange={(v) => v && setStatus(v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs text-slate-400">Nomor Resi</Label>
-                <Input value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} placeholder="Otomatis dari Biteship" />
-              </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-400">Status</span>
+              <Badge className={statusColors[order.status]}>{statusLabels[order.status] || order.status}</Badge>
             </div>
-            <Button onClick={handleUpdate} disabled={saving} className="w-full gap-2">
-              <Truck className="h-4 w-4" />{saving ? "Menyimpan..." : "Simpan Perubahan"}
-            </Button>
+            {order.trackingNumber && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400">Nomor Resi</span>
+                <span className="text-sm font-medium">{order.trackingNumber}</span>
+              </div>
+            )}
           </CardContent></Card>
 
           {order.status === "PROCESSING" && order.address?.postalCode && !order.biteshipWaybillId && (
@@ -264,7 +262,7 @@ export default function AdminOrderDetailPage() {
                 {order.biteshipStatus && (
                   <div className="flex justify-between">
                     <span className="text-slate-400">Status</span>
-                    <Badge variant="outline">{order.biteshipStatus}</Badge>
+                    <Badge variant="outline">{biteshipStatusLabels[order.biteshipStatus] || order.biteshipStatus}</Badge>
                   </div>
                 )}
                 {order.biteshipTrackingUrl && (

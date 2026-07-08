@@ -8,13 +8,16 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { formatPrice } from "@/lib/utils"
-import { Plus, Pencil, Trash2, Search, Package } from "lucide-react"
+import { Plus, Pencil, Trash2, Search, Package, ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
+
+const PAGE_SIZE = 10
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
 
   useEffect(() => { fetchProducts() }, [])
 
@@ -42,12 +45,16 @@ export default function AdminProductsPage() {
       p.category?.name?.toLowerCase().includes(search.toLowerCase())
   )
 
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1
+  const safePage = Math.min(page, totalPages)
+  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Produk</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{products.length} produk terdaftar</p>
+          <p className="text-sm text-slate-500 mt-0.5">{filtered.length} produk ditemukan</p>
         </div>
         <Button asChild>
           <Link href="/admin/products/new"><Plus className="h-4 w-4" /> Tambah Produk</Link>
@@ -56,11 +63,11 @@ export default function AdminProductsPage() {
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <Input placeholder="Cari produk..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Input placeholder="Cari produk..." className="pl-10" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
       </div>
 
       <div className="space-y-3">
-        {filtered.map((product) => (
+        {paginated.map((product) => (
           <Card key={product.id}>
             <CardContent className="p-4 flex items-center gap-4">
               <div className="w-16 h-16 rounded-lg bg-slate-100 shrink-0 overflow-hidden">
@@ -99,7 +106,7 @@ export default function AdminProductsPage() {
             </CardContent>
           </Card>
         ))}
-        {filtered.length === 0 && !loading && (
+        {paginated.length === 0 && !loading && (
           <div className="text-center py-12 text-slate-400">
             <Package className="h-12 w-12 mx-auto mb-3 text-slate-300" />
             <p>Tidak ada produk ditemukan</p>
@@ -108,6 +115,19 @@ export default function AdminProductsPage() {
         )}
         {loading && <p className="text-center text-slate-400 py-8">Memuat...</p>}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 text-sm text-slate-500">
+          <Button variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>
+            <ChevronLeft className="h-4 w-4" /> Prev
+          </Button>
+          <span>Halaman {safePage} dari {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>
+            Next <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

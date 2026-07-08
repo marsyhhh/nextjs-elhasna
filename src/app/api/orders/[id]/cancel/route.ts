@@ -35,8 +35,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     },
   })
 
-  // Restore stock if order was already paid (PROCESSING status)
-  if (order.status === "PROCESSING") {
+  // Restore stock (stock was held at order creation)
+  if (order.status === "PENDING_PAYMENT" || order.status === "PROCESSING") {
     for (const item of updated.items) {
       await prisma.product.update({
         where: { id: item.productId },

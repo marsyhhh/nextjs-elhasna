@@ -115,6 +115,21 @@ export async function POST(req: Request) {
       where: { cart: { userId: session.user.id } },
     })
 
+    // Hold stock on order creation
+    for (const item of order.items) {
+      await prisma.product.update({
+        where: { id: item.productId },
+        data: { stock: { decrement: item.quantity } },
+      })
+
+      if (item.combinationId) {
+        await prisma.productVariantCombination.update({
+          where: { id: item.combinationId },
+          data: { stock: { decrement: item.quantity } },
+        })
+      }
+    }
+
     return NextResponse.json(order, { status: 201 })
   } catch (error) {
     console.error("Create order error:", error)

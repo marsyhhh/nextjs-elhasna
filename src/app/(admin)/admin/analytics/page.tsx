@@ -147,6 +147,14 @@ function getTodayISO(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+const statusLabels: Record<string, string> = {
+  PENDING_PAYMENT: "Belum Dibayar",
+  PROCESSING: "Diproses",
+  SHIPPED: "Dikirim",
+  DELIVERED: "Selesai",
+  CANCELLED: "Dibatalkan",
+}
+
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({
@@ -681,7 +689,7 @@ export default function AnalyticsPage() {
                   key={status}
                   className="flex items-center justify-between text-sm"
                 >
-                  <span className="text-slate-600">{status}</span>
+                  <span className="text-slate-600">{statusLabels[status] || status}</span>
                   <span className="font-medium text-slate-900">{count}</span>
                 </div>
               ))}
