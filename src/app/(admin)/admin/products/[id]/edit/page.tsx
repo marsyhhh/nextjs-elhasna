@@ -108,7 +108,7 @@ export default function EditProductPage() {
       if (!o1) continue
       newMatrix[o1] = {}
       for (const o2 of opts2) {
-        if (!o2) continue
+        if (o2 == null) continue
         newMatrix[o1][o2] = stockMatrix[o1]?.[o2] || "0"
       }
     }

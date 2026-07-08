@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useMemo, useTransition } from "react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -164,8 +165,9 @@ export default function AnalyticsPage() {
     dailyRevenue: 0,
     weeklyRevenue: 0,
     monthlyRevenue: 0,
-    revenueChart: [] as { date: string; revenue: number }[],
     ordersByStatus: {} as Record<string, number>,
+    monthlySummary: [] as { month: string; orders: number; revenue: number; discount: number; shipping: number }[],
+    paymentSummary: [] as { method: string; orders: number; total: number }[],
     allOrders: [] as any[],
   });
 
@@ -175,6 +177,55 @@ export default function AnalyticsPage() {
   const [selectedWeek, setSelectedWeek] = useState(getDefaultWeek());
   const [selectedMonth, setSelectedMonth] = useState(getDefaultMonth());
   const [isPending, startTransition] = useTransition();
+
+  const [chartFilter, setChartFilter] = useState<"7d" | "1m" | "date" | "week" | "month">("7d");
+  const [chartStartDate, setChartStartDate] = useState(getTodayISO());
+  const [chartEndDate, setChartEndDate] = useState(getTodayISO());
+  const [chartWeek, setChartWeek] = useState(getDefaultWeek());
+  const [chartMonth, setChartMonth] = useState(getDefaultMonth());
+
+  const chartData = useMemo(() => {
+    if (data.allOrders.length === 0) return []
+    const isPaid = (o: any) => o.paymentStatus === "SUCCESS" || o.status === "DELIVERED"
+    const getDate = (o: any) => o.paidAt ? new Date(o.paidAt) : o.updatedAt ? new Date(o.updatedAt) : new Date(o.createdAt)
+
+    let start: Date, end: Date
+    const now = new Date()
+
+    if (chartFilter === "7d") {
+      end = new Date(now); end.setHours(23, 59, 59, 999)
+      start = new Date(now); start.setDate(start.getDate() - 6); start.setHours(0, 0, 0, 0)
+    } else if (chartFilter === "1m") {
+      end = new Date(now); end.setHours(23, 59, 59, 999)
+      start = new Date(now); start.setMonth(start.getMonth() - 1); start.setHours(0, 0, 0, 0)
+    } else if (chartFilter === "date") {
+      start = new Date(chartStartDate); start.setHours(0, 0, 0, 0)
+      end = new Date(chartEndDate); end.setHours(23, 59, 59, 999)
+    } else if (chartFilter === "week") {
+      const r = getWeekDateRange(chartWeek); if (!r) return []
+      start = r.start; end = r.end
+    } else {
+      const r = getMonthDateRange(chartMonth); if (!r) return []
+      start = r.start; end = r.end
+    }
+
+    const result: { date: string; revenue: number }[] = []
+    const cur = new Date(start)
+    while (cur <= end) {
+      const dayStart = new Date(cur); dayStart.setHours(0, 0, 0, 0)
+      const dayEnd = new Date(cur); dayEnd.setHours(23, 59, 59, 999)
+      const rev = data.allOrders
+        .filter(isPaid)
+        .filter((o: any) => { const d = getDate(o); return d >= dayStart && d <= dayEnd })
+        .reduce((s: number, o: any) => s + o.total, 0)
+      result.push({
+        date: cur.toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" }),
+        revenue: rev,
+      })
+      cur.setDate(cur.getDate() + 1)
+    }
+    return result
+  }, [data.allOrders, chartFilter, chartStartDate, chartEndDate, chartWeek, chartMonth])
 
   useEffect(() => {
     fetchAnalytics();
@@ -223,24 +274,34 @@ export default function AnalyticsPage() {
         statusCount[o.status] = (statusCount[o.status] || 0) + 1;
       });
 
-      const chart: { date: string; revenue: number }[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        d.setHours(0, 0, 0, 0);
-        const next = new Date(d);
-        next.setDate(d.getDate() + 1);
-        const rev = paid
-          .filter((o: any) => getDate(o) >= d && getDate(o) < next)
-          .reduce((s: number, o: any) => s + o.total, 0);
-        chart.push({
-          date: d.toLocaleDateString("id-ID", {
-            weekday: "short",
-            day: "numeric",
-          }),
-          revenue: rev,
-        });
-      }
+      // Monthly summary
+      const monthMap = new Map<string, { orders: number; revenue: number; discount: number; shipping: number }>()
+      paid.forEach((o: any) => {
+        const d = getDate(o)
+        const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
+        const entry = monthMap.get(key) || { orders: 0, revenue: 0, discount: 0, shipping: 0 }
+        entry.orders++
+        entry.revenue += o.total
+        entry.discount += o.discount || 0
+        entry.shipping += o.shippingCost || 0
+        monthMap.set(key, entry)
+      })
+      const monthlySummary = Array.from(monthMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([month, data]) => ({ month, ...data }))
+
+      // Payment method summary
+      const payMap = new Map<string, { orders: number; total: number }>()
+      paid.forEach((o: any) => {
+        const method = o.paymentMethod || "Lainnya"
+        const entry = payMap.get(method) || { orders: 0, total: 0 }
+        entry.orders++
+        entry.total += o.total
+        payMap.set(method, entry)
+      })
+      const paymentSummary = Array.from(payMap.entries())
+        .sort(([, a], [, b]) => b.total - a.total)
+        .map(([method, data]) => ({ method, ...data }))
 
       setData({
         totalRevenue: total,
@@ -250,8 +311,9 @@ export default function AnalyticsPage() {
         dailyRevenue: daily,
         weeklyRevenue: weekly,
         monthlyRevenue: monthly,
-        revenueChart: chart,
         ordersByStatus: statusCount,
+        monthlySummary,
+        paymentSummary,
         allOrders: orders,
       });
     } catch {
@@ -543,9 +605,6 @@ export default function AnalyticsPage() {
     doc.save(`laporan-penjualan-${new Date().toISOString().slice(0, 10)}.pdf`);
   }
 
-  const maxChart = Math.max(...data.revenueChart.map((d) => d.revenue), 1);
-  const chartHeight = 200;
-
   if (loading)
     return <p className="text-slate-400 text-center py-8">Memuat data...</p>;
 
@@ -628,49 +687,65 @@ export default function AnalyticsPage() {
         {/* Chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm text-slate-900">
-              Grafik Pendapatan 7 Hari Terakhir
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.revenueChart.every((d) => d.revenue === 0) ? (
-              <div className="h-48 flex items-center justify-center text-slate-400 text-sm">
-                Belum ada data penjualan dalam 7 hari terakhir
-              </div>
-            ) : (
-              <div
-                className="flex items-end gap-2"
-                style={{ height: chartHeight }}
-              >
-                {data.revenueChart.map((day, i) => {
-                  const barH = Math.max(
-                    (day.revenue / maxChart) * (chartHeight - 40),
-                    8,
-                  );
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle className="text-sm text-slate-900">Grafik Pendapatan</CardTitle>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(["7d", "1m", "date", "week", "month"] as const).map((opt) => {
+                  const labels = { "7d": "7H", "1m": "1B", date: "Tanggal", week: "Minggu", month: "Bulan" }
                   return (
-                    <div
-                      key={i}
-                      className="flex-1 flex flex-col items-center gap-1 h-full justify-end"
-                    >
-                      <div
-                        className="relative w-full group cursor-pointer"
-                        style={{ height: barH }}
-                      >
-                        <div
-                          className="w-full rounded-t bg-gradient-to-t from-primary to-pink-400 transition-all duration-300 group-hover:opacity-80"
-                          style={{ height: "100%" }}
-                        />
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                          {formatPrice(day.revenue)}
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-slate-400 text-center leading-tight">
-                        {day.date}
-                      </span>
-                    </div>
-                  );
+                    <Button
+                      key={opt}
+                      variant={chartFilter === opt ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 text-xs px-2"
+                      onClick={() => setChartFilter(opt)}
+                    >{labels[opt]}</Button>
+                  )
                 })}
               </div>
+            </div>
+            {chartFilter === "date" && (
+              <div className="flex flex-wrap items-center gap-3 mt-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-slate-400">Dari</Label>
+                  <Input type="date" className="w-auto h-7 text-xs" value={chartStartDate} onChange={(e) => setChartStartDate(e.target.value)} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-slate-400">Sampai</Label>
+                  <Input type="date" className="w-auto h-7 text-xs" value={chartEndDate} onChange={(e) => setChartEndDate(e.target.value)} />
+                </div>
+              </div>
+            )}
+            {chartFilter === "week" && (
+              <div className="mt-2">
+                <Input type="week" className="w-auto h-7 text-xs" value={chartWeek} onChange={(e) => setChartWeek(e.target.value)} />
+              </div>
+            )}
+            {chartFilter === "month" && (
+              <div className="mt-2">
+                <Input type="month" className="w-auto h-7 text-xs" value={chartMonth} onChange={(e) => setChartMonth(e.target.value)} />
+              </div>
+            )}
+          </CardHeader>
+          <CardContent>
+            {loading || chartData.length === 0 ? (
+              <div className="h-64 flex items-center justify-center text-slate-400 text-sm">
+                {loading ? "Memuat..." : "Belum ada data penjualan"}
+              </div>
+            ) : chartData.every((d) => d.revenue === 0) ? (
+              <div className="h-64 flex items-center justify-center text-slate-400 text-sm">
+                Belum ada data penjualan di periode ini
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#94a3b8" interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" tickFormatter={(v: number) => formatPrice(v)} />
+                  <Tooltip formatter={(v: number) => [formatPrice(v), "Pendapatan"]} />
+                  <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: "#3b82f6" }} activeDot={{ r: 5 }} name="Pendapatan" />
+                </LineChart>
+              </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
@@ -737,6 +812,84 @@ export default function AnalyticsPage() {
             <p className="text-2xl font-bold">
               {formatPrice(data.monthlyRevenue)}
             </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Monthly Summary + Payment Breakdown */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Monthly Summary */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm text-slate-900">Ringkasan Bulanan</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 max-h-72 overflow-auto">
+            {data.monthlySummary.length === 0 ? (
+              <p className="text-sm text-slate-400 p-4">Belum ada data</p>
+            ) : (
+              <table className="w-full text-xs border-collapse">
+                <thead className="sticky top-0 bg-slate-100">
+                  <tr>
+                    <th className="text-left p-2 border border-slate-200 font-semibold">Bulan</th>
+                    <th className="text-center p-2 border border-slate-200 font-semibold">Pesanan</th>
+                    <th className="text-right p-2 border border-slate-200 font-semibold">Revenue</th>
+                    <th className="text-right p-2 border border-slate-200 font-semibold">Diskon</th>
+                    <th className="text-right p-2 border border-slate-200 font-semibold">Ongkir</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.monthlySummary.map((r) => {
+                    const [y, m] = r.month.split("-")
+                    const label = `${["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"][parseInt(m) - 1]} ${y}`
+                    return (
+                      <tr key={r.month} className="hover:bg-slate-50">
+                        <td className="p-2 border border-slate-200 font-medium">{label}</td>
+                        <td className="p-2 border border-slate-200 text-center">{r.orders}</td>
+                        <td className="p-2 border border-slate-200 text-right">{formatPrice(r.revenue)}</td>
+                        <td className="p-2 border border-slate-200 text-right text-red-500">{formatPrice(r.discount)}</td>
+                        <td className="p-2 border border-slate-200 text-right">{formatPrice(r.shipping)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Payment Method Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm text-slate-900">Metode Pembayaran</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 max-h-72 overflow-auto">
+            {data.paymentSummary.length === 0 ? (
+              <p className="text-sm text-slate-400 p-4">Belum ada data</p>
+            ) : (
+              <table className="w-full text-xs border-collapse">
+                <thead className="sticky top-0 bg-slate-100">
+                  <tr>
+                    <th className="text-left p-2 border border-slate-200 font-semibold">Metode</th>
+                    <th className="text-center p-2 border border-slate-200 font-semibold">Transaksi</th>
+                    <th className="text-right p-2 border border-slate-200 font-semibold">Total</th>
+                    <th className="text-right p-2 border border-slate-200 font-semibold">%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.paymentSummary.map((r) => {
+                    const pct = data.totalRevenue > 0 ? Math.round((r.total / data.totalRevenue) * 100) : 0
+                    return (
+                      <tr key={r.method} className="hover:bg-slate-50">
+                        <td className="p-2 border border-slate-200 font-medium capitalize">{r.method.replace(/_/g, " ")}</td>
+                        <td className="p-2 border border-slate-200 text-center">{r.orders}</td>
+                        <td className="p-2 border border-slate-200 text-right">{formatPrice(r.total)}</td>
+                        <td className="p-2 border border-slate-200 text-right">{pct}%</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
           </CardContent>
         </Card>
       </div>
